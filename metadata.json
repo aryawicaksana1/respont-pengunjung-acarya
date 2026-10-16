@@ -1,0 +1,6 @@
+{
+  "name": "Buku Tamu & Survei Kost Acarya 2",
+  "description": "Aplikasi formulir survei dan pendapat pengunjung Kost Acarya 2 terhubung langsung dengan Google Sheets via Google Apps Script.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
