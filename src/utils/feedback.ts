@@ -326,13 +326,94 @@ function doPost(e) {
   }
 }
 
-// Endpoint GET untuk mengecek status Web App
+// Endpoint GET untuk membaca data buku tamu dari Google Sheet atau cek status (Mendukung Sinkronisasi & Penghapusan 2-Arah)
 function doGet(e) {
-  return ContentService.createTextOutput(JSON.stringify({
-    status: "online",
-    service: "Webhook Google Apps Script - Kost Acarya",
-    timestamp: Utilities.formatDate(new Date(), "Asia/Jakarta", "dd/MM/yyyy HH:mm:ss")
-  })).setMimeType(ContentService.MimeType.JSON);
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var lastRow = sheet.getLastRow();
+    var lastCol = sheet.getLastColumn();
+
+    // Jika sheet masih kosong atau hanya baris header
+    if (lastRow <= 1) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        total: 0,
+        feedbacks: [],
+        timestamp: Utilities.formatDate(new Date(), "Asia/Jakarta", "dd/MM/yyyy HH:mm:ss")
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Ambil seluruh baris ulasan mulai dari baris ke-2
+    var data = sheet.getRange(2, 1, lastRow - 1, Math.max(lastCol, 17)).getValues();
+    var feedbacks = [];
+
+    for (var i = 0; i < data.length; i++) {
+      var row = data[i];
+      var nama = row[2] ? String(row[2]).trim() : "";
+      if (!nama) continue; // Lewati baris kosong jika ada
+
+      var rawTimestamp = row[0];
+      var formattedDate = "";
+      if (rawTimestamp instanceof Date) {
+        formattedDate = Utilities.formatDate(rawTimestamp, "Asia/Jakarta", "dd/MM/yyyy HH:mm");
+      } else {
+        formattedDate = String(rawTimestamp || "");
+      }
+
+      var tglKunjungan = row[6];
+      if (tglKunjungan instanceof Date) {
+        tglKunjungan = Utilities.formatDate(tglKunjungan, "Asia/Jakarta", "yyyy-MM-dd");
+      } else {
+        tglKunjungan = String(tglKunjungan || "");
+      }
+
+      var jam = row[7];
+      if (jam instanceof Date) {
+        jam = Utilities.formatDate(jam, "Asia/Jakarta", "HH:mm");
+      } else {
+        jam = String(jam || "");
+      }
+
+      feedbacks.push({
+        id: "gs_" + (i + 2) + "_" + encodeURIComponent(nama),
+        timestamp: formattedDate,
+        kostLokasi: row[1] ? String(row[1]) : "Kost Acarya 2",
+        nama: nama,
+        whatsapp: row[3] ? String(row[3]) : "",
+        kategori: row[4] ? String(row[4]) : "pengunjung_umum",
+        kamarTujuan: row[5] ? String(row[5]) : "",
+        tanggalKunjungan: tglKunjungan,
+        waktuKunjungan: jam,
+        ratingKeseluruhan: Number(row[8]) || 5,
+        ratingKebersihan: Number(row[9]) || 5,
+        ratingKeamanan: Number(row[10]) || 5,
+        ratingFasilitas: Number(row[11]) || 5,
+        ratingPelayanan: Number(row[12]) || 5,
+        rataRataSkor: Number(row[13]) || 5,
+        kesanPositif: row[14] ? String(row[14]) : "",
+        saranPerbaikan: row[15] ? String(row[15]) : "",
+        rekomendasi: row[16] ? String(row[16]) : "ya",
+        synced: true
+      });
+    }
+
+    // Urutkan dari data paling baru
+    feedbacks.reverse();
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "success",
+      total: feedbacks.length,
+      feedbacks: feedbacks,
+      timestamp: Utilities.formatDate(new Date(), "Asia/Jakarta", "dd/MM/yyyy HH:mm:ss")
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "error",
+      message: "Gagal membaca baris Google Sheet: " + err.toString(),
+      feedbacks: []
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 /**

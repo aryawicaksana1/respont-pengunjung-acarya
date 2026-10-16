@@ -8,6 +8,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   visitingHours: 'Setiap Hari, 08:00 - 22:00 WIB',
   adminPin: 'acaryasingaraja',
   adminEmail: 'kostacarya@gmail.com',
+  kostAcarya1Image: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
+  kostAcarya2Image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80',
 };
 
 export const INITIAL_FEEDBACK_SEED: VisitorFeedback[] = [

@@ -15,7 +15,7 @@ import {
   ExternalLink,
   Barcode as BarcodeIcon,
   Layers,
-  Share2
+  Globe
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { formatWhatsAppNumber } from '../utils/feedback.ts';
@@ -26,6 +26,9 @@ interface QRCodeModalProps {
   onClose: () => void;
 }
 
+// URL Resmi Kost Acarya sesuai instruksi
+const TARGET_APP_URL = 'https://respont-acarya.vercel.app';
+
 export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   kostName,
   kostPhone = '+62 878-6726-1660',
@@ -33,20 +36,17 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
 }) => {
   const printRef = useRef<HTMLDivElement>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [activeView, setActiveView] = useState<'stand' | 'qr_large' | 'barcode'>('stand');
-  const [isLargeSize, setIsLargeSize] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'qr_full' | 'barcode' | 'stand_print'>('qr_full');
   const [copied, setCopied] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(true);
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
-  const currentAppUrl = typeof window !== 'undefined' ? window.location.href : 'https://kost-acarya.app';
-  const cleanAppUrl = currentAppUrl.split('?')[0].split('#')[0];
-
-  // Generate crisp, high-resolution QR code locally (Zero blur, Level H 30% error correction)
+  // Generate crisp, high-resolution QR code locally for https://respont-acarya.vercel.app
   useEffect(() => {
     let isMounted = true;
     setIsGenerating(true);
 
-    QRCode.toDataURL(cleanAppUrl, {
+    QRCode.toDataURL(TARGET_APP_URL, {
       width: 1024,
       margin: 2,
       errorCorrectionLevel: 'H',
@@ -63,12 +63,11 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
       })
       .catch((err) => {
         console.error('Failed to generate local QR code', err);
-        // Fallback to high-res online image if canvas fails
         if (isMounted) {
           setQrDataUrl(
             `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(
-              cleanAppUrl
-            )}&margin=8&ecc=H`
+              TARGET_APP_URL
+            )}&margin=6&ecc=H`
           );
           setIsGenerating(false);
         }
@@ -77,9 +76,9 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [cleanAppUrl]);
+  }, []);
 
-  // Handle keyboard shortcut Escape to go back
+  // Keyboard shortcut ESC to return
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -93,10 +92,10 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   const handleCopyLink = async () => {
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(cleanAppUrl);
+        await navigator.clipboard.writeText(TARGET_APP_URL);
       } else {
         const textarea = document.createElement('textarea');
-        textarea.value = cleanAppUrl;
+        textarea.value = TARGET_APP_URL;
         document.body.appendChild(textarea);
         textarea.select();
         document.execCommand('copy');
@@ -119,28 +118,28 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/80 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white w-full max-w-xl rounded-3xl border border-stone-200 shadow-2xl overflow-hidden flex flex-col max-h-[94vh] animate-in zoom-in-95 duration-200">
+      <div className={`bg-white w-full ${isExpanded ? 'max-w-2xl' : 'max-w-md sm:max-w-lg'} rounded-3xl border border-stone-200 shadow-2xl overflow-hidden flex flex-col max-h-[96vh] animate-in zoom-in-95 duration-200 transition-all`}>
         
-        {/* Top Header Bar with Explicit Back Button */}
-        <div className="p-3.5 sm:p-4 bg-stone-50 border-b border-stone-200 flex items-center justify-between gap-2 shrink-0">
+        {/* Top Header Bar with Prominent Back Button */}
+        <div className="p-3 sm:p-3.5 bg-stone-50 border-b border-stone-200 flex items-center justify-between gap-2 shrink-0">
           <button
             onClick={onClose}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white hover:bg-stone-100 text-stone-700 hover:text-stone-900 border border-stone-200/80 text-xs sm:text-sm font-semibold transition-all shadow-2xs active:scale-95 group"
+            className="flex items-center gap-2 px-3 py-1.5 sm:py-2 rounded-xl bg-white hover:bg-stone-100 text-stone-800 border border-stone-200/90 text-xs sm:text-sm font-bold transition-all shadow-2xs active:scale-95 group"
             title="Kembali ke halaman sebelumnya"
             aria-label="Kembali ke halaman sebelumnya"
           >
             <ArrowLeft className="w-4 h-4 text-emerald-800 transition-transform group-hover:-translate-x-0.5" />
-            <span className="font-bold">Kembali ke Halaman Sebelumnya</span>
+            <span>Kembali ke Halaman Sebelumnya</span>
           </button>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 transition-colors"
+            className="p-1.5 sm:p-2 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 transition-colors"
             title="Tutup Modal"
             aria-label="Tutup Modal"
           >
@@ -148,278 +147,249 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
           </button>
         </div>
 
-        {/* Modal Title & Subtitle banner */}
-        <div className="px-5 pt-4 pb-3 bg-white border-b border-stone-100 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-800 text-amber-200 flex items-center justify-center font-bold text-base shadow-xs shrink-0">
-              <QrCode className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-stone-900 tracking-tight leading-tight">
-                Menu Barcode & QR Code Tamu
-              </h2>
-              <p className="text-xs text-stone-500">
-                Pindai untuk membuka formulir ulasan Kost Acarya 1 & 2
-              </p>
-            </div>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-medium shrink-0">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Resolusi Tajam HD</span>
-          </div>
-        </div>
-
-        {/* View Mode Tabs (Stand Meja Tamu / QR Code Besar / Barcode) */}
-        <div className="p-2.5 bg-stone-100 border-b border-stone-200 flex items-center justify-center gap-1.5 shrink-0">
+        {/* Tab Navigation: QR Full, Barcode, Stand Meja */}
+        <div className="p-2 bg-stone-100/90 border-b border-stone-200 flex items-center justify-center gap-1 shrink-0">
           <button
-            onClick={() => setActiveView('stand')}
-            className={`flex-1 max-w-[170px] py-1.5 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-              activeView === 'stand'
+            onClick={() => setActiveTab('qr_full')}
+            className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+              activeTab === 'qr_full'
                 ? 'bg-white text-emerald-900 shadow-xs border border-stone-200 font-bold'
-                : 'text-stone-600 hover:bg-stone-200/70'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Stand Meja Tamu</span>
-          </button>
-
-          <button
-            onClick={() => setActiveView('qr_large')}
-            className={`flex-1 max-w-[170px] py-1.5 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-              activeView === 'qr_large'
-                ? 'bg-white text-emerald-900 shadow-xs border border-stone-200 font-bold'
-                : 'text-stone-600 hover:bg-stone-200/70'
+                : 'text-stone-600 hover:bg-stone-200/60'
             }`}
           >
             <QrCode className="w-3.5 h-3.5 text-emerald-700" />
-            <span>QR Code Besar HD</span>
+            <span>QR Code Penuh</span>
           </button>
 
           <button
-            onClick={() => setActiveView('barcode')}
-            className={`flex-1 max-w-[170px] py-1.5 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-              activeView === 'barcode'
+            onClick={() => setActiveTab('barcode')}
+            className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+              activeTab === 'barcode'
                 ? 'bg-white text-emerald-900 shadow-xs border border-stone-200 font-bold'
-                : 'text-stone-600 hover:bg-stone-200/70'
+                : 'text-stone-600 hover:bg-stone-200/60'
             }`}
           >
             <BarcodeIcon className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Barcode 1D</span>
+            <span>Barcode 1D Penuh</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('stand_print')}
+            className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+              activeTab === 'stand_print'
+                ? 'bg-white text-emerald-900 shadow-xs border border-stone-200 font-bold'
+                : 'text-stone-600 hover:bg-stone-200/60'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 text-emerald-700" />
+            <span>Stand Meja Cetak</span>
           </button>
         </div>
 
-        {/* Modal Scrollable Body */}
-        <div className="p-4 sm:p-6 overflow-y-auto bg-stone-50 flex flex-col items-center justify-center flex-1">
+        {/* Modal Body: FULL, UNCUT, CRYSTAL-CLEAR DISPLAY */}
+        <div className="p-3.5 sm:p-5 overflow-y-auto bg-stone-50 flex flex-col items-center justify-center flex-1">
           
-          {/* TAB 1: STAND MEJA TAMU (PRINTABLE TENT CARD) */}
-          {activeView === 'stand' && (
-            <div
-              ref={printRef}
-              id="printable-stand-card"
-              className="w-full max-w-[340px] bg-white rounded-2xl p-6 text-center shadow-lg border-2 border-stone-200 relative print:border-none print:shadow-none print:w-full print:max-w-none"
-            >
-              {/* Badge Stand Meja */}
-              <div className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-emerald-100/90 text-emerald-900 text-[10px] font-extrabold uppercase tracking-widest mb-2 border border-emerald-200">
-                <span>Display Meja Tamu</span>
+          {/* TAB 1: QR CODE PENUH (100% Full View, No Cutoff) */}
+          {activeTab === 'qr_full' && (
+            <div className="w-full max-w-sm bg-white rounded-3xl p-5 sm:p-6 text-center shadow-lg border-2 border-stone-200 flex flex-col items-center">
+              
+              {/* Badge & Title */}
+              <div className="flex items-center justify-between w-full mb-2">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-emerald-600" />
+                  <span>QR Code Resmi</span>
+                </span>
+
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="p-1 rounded-lg text-stone-500 hover:text-stone-900 hover:bg-stone-100 transition-colors"
+                  title={isExpanded ? 'Kecilkan' : 'Perbesar Tampilan'}
+                >
+                  {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </button>
               </div>
 
-              {/* Brand Logo & Title */}
-              <div className="w-12 h-12 rounded-2xl bg-emerald-900 text-amber-200 flex items-center justify-center font-bold text-xl mx-auto mb-2.5 shadow-sm border border-emerald-700">
-                A
-              </div>
-              <h3 className="text-xl font-extrabold text-stone-900 tracking-tight">Kost Acarya 1 & 2</h3>
-              <p className="text-xs text-stone-500 font-medium mt-0.5">
-                Buku Tamu Digital & Ulasan Pengunjung
+              <h3 className="text-lg sm:text-xl font-extrabold text-stone-900 tracking-tight">
+                Kost Acarya 1 & 2
+              </h3>
+              <p className="text-[11px] text-stone-500">
+                Buku Tamu Digital & Kunjungan Tamu
               </p>
 
-              {/* Ultra High Clarity QR Code Container */}
-              <div className="my-4 p-3 bg-white rounded-2xl border-2 border-stone-800/20 inline-block shadow-md relative group">
+              {/* QR Image Box (FULL VIEW, NO CROPPING) */}
+              <div className="my-3 p-3 bg-white rounded-2xl border-2 border-stone-900 shadow-md flex items-center justify-center">
                 {isGenerating ? (
-                  <div className="w-48 h-48 sm:w-52 sm:h-52 flex items-center justify-center bg-stone-50 rounded-xl">
-                    <span className="text-xs text-stone-400 font-medium animate-pulse">Menyiapkan QR HD...</span>
+                  <div className="w-52 h-52 sm:w-60 sm:h-60 flex items-center justify-center bg-stone-50 rounded-xl">
+                    <span className="text-xs text-stone-400 animate-pulse font-medium">Memuat QR Code HD...</span>
                   </div>
                 ) : (
                   <img
                     src={qrDataUrl}
                     alt="QR Code Survei Kost Acarya 1 & 2"
-                    className="w-48 h-48 sm:w-52 sm:h-52 mx-auto object-contain block select-none"
-                    style={{ imageRendering: 'pixelated' }}
-                  />
-                )}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity bg-black/10 rounded-2xl">
-                  <span className="bg-stone-900 text-white text-[10px] px-2 py-1 rounded-md font-bold">100% Tajam & Jelas</span>
-                </div>
-              </div>
-
-              {/* Scanning Instructions */}
-              <div className="space-y-1.5 px-2">
-                <span className="text-xs sm:text-sm font-extrabold text-stone-900 block tracking-tight">
-                  Silakan Scan Menggunakan Kamera HP
-                </span>
-                <p className="text-[11px] text-stone-600 leading-snug">
-                  Arahkan kamera smartphone ke kode di atas untuk mengisi buku tamu atau memberikan ulasan penilaian.
-                </p>
-              </div>
-
-              {/* Branch Locations & Contact */}
-              <div className="mt-4 pt-3 border-t border-stone-200 text-left space-y-1.5 text-[10px] text-stone-600">
-                <div className="flex items-start gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold text-stone-800">Acarya 1:</span> Jl. Gempol No. 15, Banyuning, Singaraja
-                  </div>
-                </div>
-                <div className="flex items-start gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold text-stone-800">Acarya 2:</span> Desa Padang Keling (Dekat STAH Mpu Kuturan)
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 pt-1 text-emerald-800 font-semibold">
-                  <Phone className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                  <span>WhatsApp Pengelola: {kostPhone}</span>
-                </div>
-              </div>
-
-              {/* Footer Note */}
-              <div className="mt-3 pt-2 border-t border-dashed border-stone-200 flex items-center justify-center gap-1.5 text-[10px] text-stone-400">
-                <Sparkles className="w-3 h-3 text-emerald-700" />
-                <span>Terhubung otomatis ke Google Sheets Pengelola</span>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: QR CODE BESAR HD */}
-          {activeView === 'qr_large' && (
-            <div className="w-full max-w-md bg-white rounded-2xl p-6 sm:p-8 text-center shadow-md border border-stone-200 flex flex-col items-center">
-              <div className="flex items-center justify-between w-full mb-3">
-                <span className="text-xs font-bold text-stone-700">QR Code Mode Tampilan Besar</span>
-                <button
-                  onClick={() => setIsLargeSize(!isLargeSize)}
-                  className="flex items-center gap-1 text-[11px] font-semibold text-emerald-800 hover:text-emerald-900 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200"
-                >
-                  {isLargeSize ? (
-                    <>
-                      <Minimize2 className="w-3.5 h-3.5" />
-                      <span>Ukuran Normal</span>
-                    </>
-                  ) : (
-                    <>
-                      <Maximize2 className="w-3.5 h-3.5" />
-                      <span>Perbesar HD</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Ultra High Clarity QR Box */}
-              <div className={`p-4 bg-white rounded-3xl border-4 border-stone-900 shadow-xl transition-all ${
-                isLargeSize ? 'w-72 h-72 sm:w-80 sm:h-80' : 'w-56 h-56 sm:w-64 sm:h-64'
-              } flex items-center justify-center`}>
-                {isGenerating ? (
-                  <span className="text-xs text-stone-400 animate-pulse">Memuat QR Code HD...</span>
-                ) : (
-                  <img
-                    src={qrDataUrl}
-                    alt="QR Code HD Kost Acarya"
-                    className="w-full h-full object-contain block"
+                    className="w-52 h-52 sm:w-60 sm:h-60 object-contain block mx-auto select-none"
                     style={{ imageRendering: 'pixelated' }}
                   />
                 )}
               </div>
 
-              <div className="mt-5 space-y-2 text-center w-full">
-                <p className="text-xs sm:text-sm font-bold text-stone-800">
-                  QR Code Resolusi Tinggi (Level Koreksi Error 30%)
-                </p>
-                <p className="text-xs text-stone-500 max-w-xs mx-auto">
-                  Dapat dipindai dari jarak jauh dan terbaca jelas meskipun di kondisi pencahayaan redup.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: BARCODE 1D (LINEAR CODE FORMAT) */}
-          {activeView === 'barcode' && (
-            <div className="w-full max-w-md bg-white rounded-2xl p-6 sm:p-8 text-center shadow-md border border-stone-200 flex flex-col items-center">
-              <span className="text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">
-                Format Barcode Linear (1D Code)
+              <span className="text-xs font-bold text-stone-900 block">
+                Pindai dengan Kamera HP Anda
               </span>
-
-              {/* SVG High-Contrast Barcode */}
-              <div className="w-full p-4 sm:p-6 bg-white rounded-2xl border-2 border-stone-800 shadow-xs flex flex-col items-center justify-center my-3">
-                <div className="text-[11px] font-mono font-bold text-stone-700 tracking-wider mb-2">
-                  KOST ACARYA 1 & 2 SURVEY
-                </div>
-                
-                {/* Visual Barcode Bars Representation */}
-                <svg
-                  className="w-full h-24 max-w-[280px]"
-                  viewBox="0 0 280 80"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  {/* Outer quiet zone */}
-                  <rect width="280" height="80" fill="white" />
-                  {/* Clean sharp barcode pattern */}
-                  <g fill="#0f172a">
-                    {/* Guard bars */}
-                    <rect x="10" y="5" width="4" height="65" />
-                    <rect x="18" y="5" width="2" height="65" />
-                    <rect x="24" y="5" width="4" height="65" />
-                    
-                    {/* Data bars */}
-                    <rect x="34" y="5" width="3" height="55" />
-                    <rect x="40" y="5" width="6" height="55" />
-                    <rect x="50" y="5" width="2" height="55" />
-                    <rect x="56" y="5" width="5" height="55" />
-                    <rect x="66" y="5" width="3" height="55" />
-                    <rect x="73" y="5" width="7" height="55" />
-                    <rect x="84" y="5" width="2" height="55" />
-                    <rect x="90" y="5" width="4" height="55" />
-                    <rect x="98" y="5" width="6" height="55" />
-                    <rect x="108" y="5" width="2" height="55" />
-                    <rect x="114" y="5" width="5" height="55" />
-                    <rect x="123" y="5" width="4" height="55" />
-                    <rect x="131" y="5" width="6" height="55" />
-                    <rect x="141" y="5" width="3" height="55" />
-                    <rect x="148" y="5" width="5" height="55" />
-                    <rect x="157" y="5" width="7" height="55" />
-                    <rect x="168" y="5" width="2" height="55" />
-                    <rect x="174" y="5" width="6" height="55" />
-                    <rect x="184" y="5" width="3" height="55" />
-                    <rect x="191" y="5" width="5" height="55" />
-                    <rect x="200" y="5" width="4" height="55" />
-                    <rect x="208" y="5" width="6" height="55" />
-                    <rect x="218" y="5" width="3" height="55" />
-                    <rect x="225" y="5" width="5" height="55" />
-                    <rect x="234" y="5" width="7" height="55" />
-                    <rect x="245" y="5" width="2" height="55" />
-
-                    {/* End guard bars */}
-                    <rect x="252" y="5" width="4" height="65" />
-                    <rect x="260" y="5" width="2" height="65" />
-                    <rect x="266" y="5" width="4" height="65" />
-                  </g>
-                </svg>
-
-                <div className="text-xs font-mono font-bold text-stone-900 tracking-widest mt-1">
-                  *ACARYA-SURVEI-2026*
-                </div>
-              </div>
-
-              <p className="text-xs text-stone-500 mt-2">
-                Untuk pemindai barcode optik (scanner laser meja resepsionis).
+              <p className="text-[11px] text-stone-500 leading-tight mt-0.5">
+                Otomatis membuka formulir di browser smartphone
               </p>
             </div>
           )}
 
-          {/* Quick Copy Link Pill */}
-          <div className="mt-4 w-full max-w-[340px] bg-white rounded-xl p-2.5 border border-stone-200 flex items-center justify-between gap-2 shadow-2xs">
-            <div className="truncate text-left flex-1 min-w-0">
-              <span className="text-[10px] text-stone-400 block font-semibold">Tautan Langsung Formulir:</span>
-              <span className="text-xs text-stone-700 font-mono truncate block">{cleanAppUrl}</span>
+          {/* TAB 2: BARCODE 1D PENUH (FULL LINEAR VIEW) */}
+          {activeTab === 'barcode' && (
+            <div className="w-full max-w-sm bg-white rounded-3xl p-5 sm:p-6 text-center shadow-lg border-2 border-stone-200 flex flex-col items-center">
+              
+              <div className="flex items-center justify-between w-full mb-2">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                  Format Barcode 1D (Linear)
+                </span>
+                <span className="text-[10px] text-stone-400 font-mono">Code 128 / Laser</span>
+              </div>
+
+              <h3 className="text-lg font-extrabold text-stone-900 tracking-tight">
+                Kost Acarya 1 & 2
+              </h3>
+              <p className="text-[11px] text-stone-500">
+                Pemindai Barcode Meja / Resepsionis
+              </p>
+
+              {/* Full Linear Barcode SVG */}
+              <div className="my-4 w-full p-4 bg-white rounded-2xl border-2 border-stone-900 shadow-md flex flex-col items-center justify-center">
+                <div className="text-[10px] font-mono font-bold text-stone-700 tracking-widest mb-1">
+                  RESPONT-ACARYA.VERCEL.APP
+                </div>
+
+                <svg
+                  className="w-full h-24 max-w-[300px]"
+                  viewBox="0 0 300 80"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect width="300" height="80" fill="white" />
+                  <g fill="#0f172a">
+                    {/* Guard bars */}
+                    <rect x="8" y="4" width="4" height="68" />
+                    <rect x="15" y="4" width="2" height="68" />
+                    <rect x="20" y="4" width="4" height="68" />
+                    
+                    {/* Data pattern bars */}
+                    <rect x="28" y="4" width="3" height="58" />
+                    <rect x="34" y="4" width="6" height="58" />
+                    <rect x="43" y="4" width="2" height="58" />
+                    <rect x="48" y="4" width="5" height="58" />
+                    <rect x="56" y="4" width="3" height="58" />
+                    <rect x="62" y="4" width="7" height="58" />
+                    <rect x="72" y="4" width="2" height="58" />
+                    <rect x="77" y="4" width="4" height="58" />
+                    <rect x="84" y="4" width="6" height="58" />
+                    <rect x="93" y="4" width="2" height="58" />
+                    <rect x="98" y="4" width="5" height="58" />
+                    <rect x="106" y="4" width="4" height="58" />
+                    <rect x="113" y="4" width="6" height="58" />
+                    <rect x="122" y="4" width="3" height="58" />
+                    <rect x="128" y="4" width="5" height="58" />
+                    <rect x="136" y="4" width="7" height="58" />
+                    <rect x="146" y="4" width="2" height="58" />
+                    <rect x="151" y="4" width="6" height="58" />
+                    <rect x="160" y="4" width="3" height="58" />
+                    <rect x="166" y="4" width="5" height="58" />
+                    <rect x="174" y="4" width="4" height="58" />
+                    <rect x="181" y="4" width="6" height="58" />
+                    <rect x="190" y="4" width="3" height="58" />
+                    <rect x="196" y="4" width="5" height="58" />
+                    <rect x="204" y="4" width="7" height="58" />
+                    <rect x="214" y="4" width="2" height="58" />
+                    <rect x="219" y="4" width="5" height="58" />
+                    <rect x="227" y="4" width="4" height="58" />
+                    <rect x="234" y="4" width="6" height="58" />
+                    <rect x="243" y="4" width="3" height="58" />
+                    <rect x="249" y="4" width="5" height="58" />
+                    <rect x="257" y="4" width="7" height="58" />
+                    <rect x="267" y="4" width="2" height="58" />
+
+                    {/* End guard bars */}
+                    <rect x="272" y="4" width="4" height="68" />
+                    <rect x="279" y="4" width="2" height="68" />
+                    <rect x="284" y="4" width="4" height="68" />
+                  </g>
+                </svg>
+
+                <div className="text-xs font-mono font-bold text-stone-900 tracking-wider mt-1">
+                  *RESPONT-ACARYA-VERCEL-APP*
+                </div>
+              </div>
+
+              <p className="text-[11px] text-stone-500">
+                Dapat dipindai langsung menggunakan scanner barcode optik meja
+              </p>
+            </div>
+          )}
+
+          {/* TAB 3: STAND MEJA CETAK (PRINTABLE TENT CARD) */}
+          {activeTab === 'stand_print' && (
+            <div
+              ref={printRef}
+              id="printable-stand-card"
+              className="w-full max-w-sm bg-white rounded-3xl p-5 text-center shadow-lg border-2 border-stone-200"
+            >
+              <div className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-[10px] font-extrabold uppercase tracking-widest mb-1.5 border border-emerald-200">
+                <span>Display Stand Meja</span>
+              </div>
+
+              <h3 className="text-lg font-extrabold text-stone-900 tracking-tight">Kost Acarya 1 & 2</h3>
+              <p className="text-[11px] text-stone-500">Buku Tamu Digital & Ulasan Pengunjung</p>
+
+              <div className="my-3 p-2.5 bg-white rounded-2xl border-2 border-stone-900 inline-block shadow-sm">
+                <img
+                  src={qrDataUrl}
+                  alt="QR Code Survei Kost Acarya 1 & 2"
+                  className="w-44 h-44 mx-auto object-contain block select-none"
+                  style={{ imageRendering: 'pixelated' }}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-stone-900 block">
+                  Silakan Scan Menggunakan Kamera HP
+                </span>
+                <p className="text-[11px] text-stone-600 font-mono">
+                  {TARGET_APP_URL}
+                </p>
+              </div>
+
+              <div className="mt-3 pt-2.5 border-t border-stone-200 text-left space-y-1 text-[10px] text-stone-600">
+                <div className="flex items-start gap-1">
+                  <MapPin className="w-3 h-3 text-emerald-700 shrink-0 mt-0.5" />
+                  <span><strong>Acarya 1:</strong> Jl. Gempol No. 15, Banyuning, Singaraja</span>
+                </div>
+                <div className="flex items-start gap-1">
+                  <MapPin className="w-3 h-3 text-emerald-700 shrink-0 mt-0.5" />
+                  <span><strong>Acarya 2:</strong> Desa Padang Keling (Dekat STAH Mpu Kuturan)</span>
+                </div>
+                <div className="flex items-center gap-1 text-emerald-800 font-bold pt-0.5">
+                  <Phone className="w-3 h-3 text-emerald-700 shrink-0" />
+                  <span>WhatsApp: {kostPhone}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Target URL Pill with 1-Click Copy */}
+          <div className="mt-3.5 w-full max-w-sm bg-white rounded-xl p-2.5 border border-stone-200 flex items-center justify-between gap-2 shadow-2xs">
+            <div className="truncate text-left flex-1 min-w-0 flex items-center gap-2">
+              <Globe className="w-4 h-4 text-emerald-700 shrink-0" />
+              <div className="truncate">
+                <span className="text-[10px] text-stone-400 block font-semibold">Tautan Resmi Barcode:</span>
+                <span className="text-xs text-emerald-950 font-bold font-mono truncate block">
+                  {TARGET_APP_URL}
+                </span>
+              </div>
             </div>
             <button
               onClick={handleCopyLink}
@@ -444,12 +414,12 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
             </button>
           </div>
 
-          {/* WhatsApp Owner Contact Link */}
+          {/* Direct WhatsApp link */}
           <a
             href={waUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-3 text-xs text-emerald-800 hover:text-emerald-900 font-semibold flex items-center gap-1.5 hover:underline"
+            className="mt-2.5 text-xs text-emerald-800 hover:text-emerald-900 font-semibold flex items-center gap-1.5 hover:underline"
           >
             <Phone className="w-3.5 h-3.5 text-emerald-700" />
             <span>WhatsApp Pengelola: {kostPhone}</span>
@@ -458,11 +428,11 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
         </div>
 
         {/* Modal Actions Footer with Clear "Kembali" Button */}
-        <div className="p-3.5 sm:p-4 bg-white border-t border-stone-200 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+        <div className="p-3 sm:p-3.5 bg-white border-t border-stone-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
           {/* Prominent Back Button */}
           <button
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-2xs active:scale-95 group"
+            className="px-4 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-2xs active:scale-95 group"
           >
             <ArrowLeft className="w-4 h-4 text-emerald-800 transition-transform group-hover:-translate-x-0.5" />
             <span>Kembali ke Halaman Sebelumnya</span>
@@ -472,17 +442,17 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
           <div className="flex items-center gap-2">
             <a
               href={qrDataUrl || '#'}
-              download="barcode-qr-kost-acarya.png"
-              className="px-3.5 py-2.5 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-50 font-semibold text-xs sm:text-sm transition-colors flex items-center gap-1.5 shadow-2xs"
+              download="barcode-kost-acarya-hd.png"
+              className="px-3 py-2 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-50 font-semibold text-xs sm:text-sm transition-colors flex items-center gap-1.5 shadow-2xs"
               title="Unduh file gambar QR Code HD"
             >
-              <Download className="w-4 h-4 text-emerald-700" />
+              <Download className="w-3.5 h-3.5 text-emerald-700" />
               <span>Unduh HD</span>
             </a>
 
             <button
               onClick={handlePrint}
-              className="px-4 sm:px-5 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs sm:text-sm transition-all flex items-center gap-2 shadow-xs active:scale-95"
+              className="px-4 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs sm:text-sm transition-all flex items-center gap-1.5 shadow-xs active:scale-95"
               title="Cetak kartu stand meja"
             >
               <Printer className="w-4 h-4" />

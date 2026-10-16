@@ -123,3 +123,100 @@ export async function testGoogleAppsScriptConnection(url: string): Promise<{ suc
     };
   }
 }
+
+export interface FetchFeedbacksResult {
+  success: boolean;
+  feedbacks?: VisitorFeedback[];
+  message: string;
+  isLegacyScript?: boolean;
+}
+
+/**
+ * Mengambil seluruh data buku tamu langsung dari Google Sheet via doGet Apps Script.
+ * Jika baris di Google Sheet dihapus oleh pengelola, maka data di website otomatis terhapus / tersinkron.
+ */
+export async function fetchFeedbacksFromGoogleSheets(scriptUrl: string): Promise<FetchFeedbacksResult> {
+  if (!scriptUrl || !scriptUrl.trim().startsWith('http')) {
+    return {
+      success: false,
+      message: 'URL Google Apps Script belum dikonfigurasi.',
+    };
+  }
+
+  try {
+    const separator = scriptUrl.includes('?') ? '&' : '?';
+    const fetchUrl = `${scriptUrl.trim()}${separator}action=read&_t=${Date.now()}`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    const response = await fetch(fetchUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    if (data && Array.isArray(data.feedbacks)) {
+      const sheetFeedbacks: VisitorFeedback[] = data.feedbacks.map((item: any, idx: number) => ({
+        id: item.id || `gs_${idx + 1}_${Date.now()}`,
+        timestamp: item.timestamp || new Date().toISOString(),
+        kostLokasi: (item.kostLokasi === 'Kost Acarya 1' || item.kostLokasi === 'Kost Acarya 2') 
+          ? item.kostLokasi 
+          : 'Kost Acarya 2',
+        nama: String(item.nama || 'Pengunjung'),
+        whatsapp: String(item.whatsapp || ''),
+        kategori: item.kategori || 'pengunjung_umum',
+        kamarTujuan: String(item.kamarTujuan || ''),
+        tanggalKunjungan: String(item.tanggalKunjungan || ''),
+        waktuKunjungan: String(item.waktuKunjungan || ''),
+        ratingKeseluruhan: Math.max(1, Math.min(5, Number(item.ratingKeseluruhan) || 5)),
+        ratingKebersihan: Math.max(1, Math.min(5, Number(item.ratingKebersihan) || 5)),
+        ratingKeamanan: Math.max(1, Math.min(5, Number(item.ratingKeamanan) || 5)),
+        ratingFasilitas: Math.max(1, Math.min(5, Number(item.ratingFasilitas) || 5)),
+        ratingPelayanan: Math.max(1, Math.min(5, Number(item.ratingPelayanan) || 5)),
+        kesanPositif: String(item.kesanPositif || ''),
+        saranPerbaikan: String(item.saranPerbaikan || ''),
+        rekomendasi: (item.rekomendasi === 'tidak' || item.rekomendasi === 'mungkin') ? item.rekomendasi : 'ya',
+        synced: true,
+        syncTimestamp: new Date().toISOString(),
+      }));
+
+      return {
+        success: true,
+        feedbacks: sheetFeedbacks,
+        message: `Berhasil memuat ${sheetFeedbacks.length} tanggapan terbaru dari Google Sheet.`,
+      };
+    }
+
+    // Jika skrip hanya mengembalikan status online lama
+    if (data && data.status === 'online') {
+      return {
+        success: false,
+        isLegacyScript: true,
+        message: 'Google Apps Script masih menggunakan versi lama. Perbarui kode di menu Panduan agar mendukung baca & sinkronisasi penghapusan otomatis.',
+      };
+    }
+
+    return {
+      success: false,
+      message: 'Format data dari Google Apps Script tidak valid.',
+    };
+  } catch (error) {
+    console.error('Error saat membaca data dari Google Apps Script:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Gagal menghubungi Google Apps Script.',
+    };
+  }
+}
+

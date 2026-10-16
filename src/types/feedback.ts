@@ -40,4 +40,6 @@ export interface AppSettings {
   visitingHours: string;
   adminPin: string;
   adminEmail: string;
+  kostAcarya1Image?: string;
+  kostAcarya2Image?: string;
 }
