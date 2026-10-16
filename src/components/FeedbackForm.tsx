@@ -40,6 +40,7 @@ interface FeedbackFormProps {
   onSaveCustomImage?: (branch: KostBranch, newImageUrl: string) => Promise<void> | void;
   onResetDefaultImage?: (branch: KostBranch) => void;
   isSavingPhotoOnline?: boolean;
+  isLegacyScript?: boolean;
 }
 
 export const FeedbackForm: React.FC<FeedbackFormProps> = ({
@@ -55,6 +56,7 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
   onSaveCustomImage,
   onResetDefaultImage,
   isSavingPhotoOnline = false,
+  isLegacyScript = false,
 }) => {
   // Current date & time defaults
   const today = new Date();
@@ -1047,6 +1049,8 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
           storedPin={adminPin}
           onAdminUnlocked={onAdminLoginSuccess}
           isSavingOnline={isSavingPhotoOnline}
+          isLegacyScript={isLegacyScript}
+          onOpenGuide={onOpenGuide}
         />
       )}
     </div>

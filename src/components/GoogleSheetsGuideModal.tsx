@@ -226,9 +226,30 @@ export const GoogleSheetsGuideModal: React.FC<GoogleSheetsGuideModalProps> = ({
             <span>Fitur Baru pada Skrip Ini:</span>
           </p>
           <ul className="list-disc list-inside space-y-1 text-stone-600 text-xs pl-1">
-            <li><strong>Foto Kost Permanen:</strong> Foto Kost Acarya 1 & 2 disimpan di tab <code className="bg-stone-200 px-1 py-0.5 rounded text-[11px]">Foto_Kost</code> sehingga otomatis tampil untuk seluruh pengunjung website.</li>
+            <li><strong>Foto Kost Permanen:</strong> Foto Kost Acarya 1 & 2 disimpan di tab <code className="bg-stone-200 px-1 py-0.5 rounded text-[11px]">Foto_Kost</code> sehingga otomatis tampil untuk seluruh pengunjung website di semua HP/laptop.</li>
             <li><strong>Sinkronisasi Hapus Baris:</strong> Jika Anda menghapus baris tanggapan di Google Sheet, ulasan di website juga akan otomatis terhapus saat dimuat ulang atau saat tombol <em>&ldquo;Segarkan dari Sheet&rdquo;</em> ditekan.</li>
           </ul>
+        </div>
+
+        {/* Troubleshooting Box: Kenapa foto belum berubah di HP/pengguna lain? */}
+        <div className="mt-4 p-4 sm:p-5 rounded-2xl bg-amber-50/90 border-2 border-amber-300 text-amber-950 text-xs sm:text-sm space-y-2.5 shadow-2xs">
+          <div className="flex items-center gap-2 font-extrabold text-amber-900 text-sm sm:text-base">
+            <HelpCircle className="w-5 h-5 text-amber-700 shrink-0" />
+            <span>Kenapa foto yang sudah dirubah belum berubah di tampilan pengguna lain?</span>
+          </div>
+          <p className="text-amber-900 leading-relaxed text-xs sm:text-sm">
+            Saat Anda mengubah foto di perangkat admin, foto langsung tersimpan di browser Anda. Namun, agar <strong>seluruh pengunjung lain otomatis melihat perubahan foto tersebut</strong>, Google Apps Script di spreadsheet Anda <strong>wajib menggunakan kode terbaru ini</strong> dan dilakukan <strong>&ldquo;Deployment Baru&rdquo;</strong>.
+          </p>
+          <div className="bg-white p-3.5 rounded-xl border border-amber-200 text-stone-800 space-y-1.5 text-xs">
+            <p className="font-bold text-amber-950">Cara Mengaktifkannya Hanya 1 Menit:</p>
+            <ol className="list-decimal list-inside space-y-1 text-stone-700 leading-relaxed">
+              <li>Klik tombol <strong>&ldquo;Salin Seluruh Kode&rdquo;</strong> di kotak hitam di bawah.</li>
+              <li>Buka spreadsheet Anda di <a href="https://sheets.google.com" target="_blank" rel="noreferrer" className="text-emerald-700 underline font-medium">Google Sheets</a>, klik menu <strong>Ekstensi (Extensions)</strong> &gt; <strong>Apps Script</strong>.</li>
+              <li>Hapus semua isi file <code className="bg-stone-100 px-1 py-0.5 rounded font-mono text-[11px]">Code.gs</code> lalu tempelkan (*Paste*) kode baru yang telah disalin tadi, lalu tekan <kbd className="px-1 bg-stone-200 rounded text-[10px]">Ctrl+S</kbd>.</li>
+              <li><strong>LANGKAH KUNCI:</strong> Klik tombol biru <strong>Terapkan (Deploy)</strong> di kanan atas &gt; pilih <strong>Deployment Baru (New Deployment)</strong> &gt; Jenis: <strong>Aplikasi Web</strong> &gt; Akses: <strong>Siapa Saja (Anyone)</strong> &gt; Klik <strong>Terapkan (Deploy)</strong>.</li>
+              <li>Selesai! Tab <em>Foto_Kost</em> akan otomatis dibuat di spreadsheet Anda dan foto akan langsung tampil untuk semua orang.</li>
+            </ol>
+          </div>
         </div>
       </div>
 

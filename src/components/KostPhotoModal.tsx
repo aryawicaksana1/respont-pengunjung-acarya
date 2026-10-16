@@ -14,11 +14,12 @@ import {
   Eye, 
   EyeOff, 
   ShieldCheck, 
-  AlertCircle,
   ArrowLeft,
   Cloud,
   CheckCircle2,
-  Loader2
+  Loader2,
+  AlertTriangle,
+  AlertCircle
 } from 'lucide-react';
 import type { KostBranch } from '../types/feedback.ts';
 import { verifyAdminPin, normalizeImageUrl, compressImageFile } from '../utils/feedback.ts';
@@ -33,6 +34,8 @@ interface KostPhotoModalProps {
   storedPin?: string;
   onAdminUnlocked?: () => void;
   isSavingOnline?: boolean;
+  isLegacyScript?: boolean;
+  onOpenGuide?: () => void;
 }
 
 export const PRESET_PHOTOS_ACARYA_1 = [
@@ -86,6 +89,8 @@ export const KostPhotoModal: React.FC<KostPhotoModalProps> = ({
   storedPin = 'acaryasingaraja',
   onAdminUnlocked,
   isSavingOnline = false,
+  isLegacyScript = false,
+  onOpenGuide,
 }) => {
   const [activeTab, setActiveTab] = useState<'view' | 'upload' | 'preset'>('view');
   const [urlInput, setUrlInput] = useState('');
@@ -316,6 +321,38 @@ export const KostPhotoModal: React.FC<KostPhotoModalProps> = ({
               >
                 ✕
               </button>
+            </div>
+          )}
+
+          {/* Alert jika script Google Apps Script di spreadsheet masih versi lama */}
+          {isLegacyScript && (
+            <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs space-y-2 shadow-xs animate-in fade-in">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-extrabold text-amber-950 text-sm">
+                    Penting: Kode Google Apps Script di Spreadsheet Anda Perlu Diperbarui!
+                  </p>
+                  <p className="text-amber-800 leading-relaxed text-xs">
+                    Foto yang Anda ubah <strong>sudah tersimpan di peramban ini</strong>, tetapi <strong>pengunjung lain belum bisa melihatnya</strong> karena Google Apps Script di spreadsheet Anda masih menggunakan kode versi lama yang belum memiliki fitur penyimpanan foto permanen (tab <em>Foto_Kost</em>).
+                  </p>
+                </div>
+              </div>
+              {onOpenGuide && (
+                <div className="pt-1 flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenGuide();
+                    }}
+                    className="px-4 py-2 rounded-xl bg-amber-800 hover:bg-amber-900 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs"
+                  >
+                    <span>Buka Panduan & Salin Kode Baru Sekarang</span>
+                    <ArrowLeft className="w-3.5 h-3.5 rotate-180" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

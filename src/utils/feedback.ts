@@ -242,9 +242,9 @@ export function normalizeImageUrl(url: string): string {
  */
 export function compressImageFile(
   file: File,
-  maxWidth = 1200,
-  maxHeight = 800,
-  quality = 0.82
+  maxWidth = 960,
+  maxHeight = 640,
+  quality = 0.72
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     if (typeof FileReader === 'undefined') {
@@ -277,16 +277,41 @@ export function compressImageFile(
         }
 
         ctx.drawImage(img, 0, 0, width, height);
+
+        let resultData = '';
         try {
           const webpData = canvas.toDataURL('image/webp', quality);
           if (webpData.startsWith('data:image/webp')) {
-            resolve(webpData);
-            return;
+            resultData = webpData;
           }
         } catch {
           // ignore fallback
         }
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        if (!resultData) {
+          resultData = canvas.toDataURL('image/jpeg', quality);
+        }
+
+        // Jika ukuran string masih lebih dari 40,000 karakter, kecilkan lebih lanjut agar aman di Google Sheet
+        if (resultData.length > 42000) {
+          const smallerCanvas = document.createElement('canvas');
+          smallerCanvas.width = Math.round(width * 0.7);
+          smallerCanvas.height = Math.round(height * 0.7);
+          const sCtx = smallerCanvas.getContext('2d');
+          if (sCtx) {
+            sCtx.drawImage(canvas, 0, 0, smallerCanvas.width, smallerCanvas.height);
+            try {
+              const sWebp = smallerCanvas.toDataURL('image/webp', 0.6);
+              if (sWebp.startsWith('data:image/webp')) {
+                resolve(sWebp);
+                return;
+              }
+            } catch {}
+            resolve(smallerCanvas.toDataURL('image/jpeg', 0.6));
+            return;
+          }
+        }
+
+        resolve(resultData);
       };
       img.onerror = () => reject(new Error('Gagal memproses gambar'));
       img.src = e.target?.result as string;
@@ -304,6 +329,7 @@ export function getGoogleAppsScriptCode(): string {
  * Script ini berfungsi sebagai Webhook backend otomatis yang:
  * 1. Menerima data ulasan pengunjung & menyimpannya rapi di sheet "Tanggapan Pengunjung".
  * 2. Menyimpan dan menyinkronkan Foto Kost Acarya 1 & 2 secara permanen di sheet "Foto_Kost".
+ *    (Mendukung URL gambar langsung, Google Drive link, maupun upload foto langsung).
  * 3. Mendukung sinkronisasi penghapusan 2 arah: jika baris ulasan di spreadsheet dihapus
  *    oleh pengelola, ulasan di website juga otomatis hilang!
  * 4. Menyediakan endpoint GET dan POST yang aman dari balapan data dengan LockService.
@@ -348,6 +374,30 @@ function doPost(e) {
       var photoUrl = data.photoUrl || "";
       var now = new Date();
       var timestampWIB = Utilities.formatDate(now, "Asia/Jakarta", "dd/MM/yyyy HH:mm:ss");
+
+      // Jika berupa base64 upload, simpan otomatis ke Google Drive pemilik agar memiliki URL permanen
+      if (photoUrl.indexOf("data:image/") === 0) {
+        try {
+          var commaIdx = photoUrl.indexOf(",");
+          var header = photoUrl.substring(0, commaIdx);
+          var mimeMatch = header.match(/data:([^;]+)/);
+          var mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+          var base64Data = photoUrl.substring(commaIdx + 1);
+          var decoded = Utilities.base64Decode(base64Data);
+          var ext = mimeType.indexOf("webp") !== -1 ? ".webp" : (mimeType.indexOf("png") !== -1 ? ".png" : ".jpg");
+          var filename = branch.replace(/[^a-zA-Z0-9]/g, "_") + "_foto" + ext;
+          var blob = Utilities.newBlob(decoded, mimeType, filename);
+          
+          var file = DriveApp.createFile(blob);
+          file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+          photoUrl = "https://lh3.googleusercontent.com/d/" + file.getId();
+        } catch (driveErr) {
+          // Jika DriveApp belum ada izin, batasi string agar aman dari limit 50,000 karakter sel spreadsheet
+          if (photoUrl.length > 49000) {
+            photoUrl = photoUrl.substring(0, 49000);
+          }
+        }
+      }
 
       var lastRow = photoSheet.getLastRow();
       var foundRow = -1;

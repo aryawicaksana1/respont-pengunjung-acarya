@@ -92,7 +92,12 @@ export async function sendFeedbackToGoogleAppsScript(
 /**
  * Uji coba koneksi URL Google Apps Script
  */
-export async function testGoogleAppsScriptConnection(url: string): Promise<{ success: boolean; message: string }> {
+export async function testGoogleAppsScriptConnection(url: string): Promise<{ 
+  success: boolean; 
+  message: string;
+  isLegacyScript?: boolean;
+  supportsPhotos?: boolean;
+}> {
   if (!url || !url.trim().startsWith('https://script.google.com/macros/s/')) {
     return {
       success: false,
@@ -101,16 +106,45 @@ export async function testGoogleAppsScriptConnection(url: string): Promise<{ suc
   }
 
   try {
+    const separator = url.includes('?') ? '&' : '?';
+    const fetchUrl = `${url.trim()}${separator}action=read&_t=${Date.now()}`;
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-    const res = await fetch(url.trim(), {
+    const res = await fetch(fetchUrl, {
       method: 'GET',
-      mode: 'no-cors',
+      headers: {
+        'Accept': 'application/json',
+      },
       signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
+
+    if (res.ok) {
+      try {
+        const json = await res.json();
+        if (json && (json.feedbacks !== undefined || json.photos !== undefined)) {
+          return {
+            success: true,
+            supportsPhotos: true,
+            isLegacyScript: false,
+            message: 'Koneksi berhasil! Skrip Google Apps Script sudah versi terbaru (Mendukung Ulasan & Foto Permanen).',
+          };
+        }
+        if (json && json.status === 'online') {
+          return {
+            success: true,
+            isLegacyScript: true,
+            supportsPhotos: false,
+            message: 'Perhatian: Skrip di Google Sheet Anda masih versi lama (belum mendukung Foto_Kost). Buka menu Panduan dan lakukan Deploy Baru agar pengunjung lain dapat melihat ulasan & foto.',
+          };
+        }
+      } catch {
+        // format non-json
+      }
+    }
 
     return {
       success: true,
@@ -208,7 +242,7 @@ export async function fetchFeedbacksFromGoogleSheets(scriptUrl: string): Promise
       return {
         success: false,
         isLegacyScript: true,
-        message: 'Google Apps Script masih menggunakan versi lama. Perbarui kode di menu Panduan agar mendukung baca & sinkronisasi penghapusan otomatis.',
+        message: 'Google Apps Script masih menggunakan versi lama. Perbarui kode di menu Panduan agar mendukung baca ulasan, sinkronisasi penghapusan, dan foto permanen.',
       };
     }
 
@@ -228,6 +262,7 @@ export async function fetchFeedbacksFromGoogleSheets(scriptUrl: string): Promise
 export interface SavePhotoResult {
   success: boolean;
   message: string;
+  isLegacyScript?: boolean;
 }
 
 /**
@@ -270,9 +305,28 @@ export async function saveKostPhotoToGoogleSheet(
 
     clearTimeout(timeoutId);
 
+    // Cek apakah script yang terpasang sudah versi baru atau masih versi lama
+    let isLegacyScript = false;
+    try {
+      const checkRes = await fetchKostPhotosFromGoogleSheet(scriptUrl);
+      if (checkRes.isLegacyScript) {
+        isLegacyScript = true;
+      }
+    } catch {
+      // ignore
+    }
+
+    if (isLegacyScript) {
+      return {
+        success: true,
+        isLegacyScript: true,
+        message: `Foto ${branch} tersimpan di browser ini, TETAPI Google Apps Script Anda masih versi lama. Pengguna lain belum bisa melihat foto ini sampai Anda memperbarui kode di Google Sheet Anda.`,
+      };
+    }
+
     return {
       success: true,
-      message: `Foto ${branch} berhasil dikirim dan tersimpan permanen di Google Sheet!`,
+      message: `Foto ${branch} berhasil dikirim dan tersimpan permanen di Google Sheet untuk seluruh pengunjung!`,
     };
   } catch (err) {
     console.error('Error saving photo to Google Sheet:', err);
@@ -290,6 +344,7 @@ export interface FetchPhotosResult {
     acarya2?: string;
   };
   message: string;
+  isLegacyScript?: boolean;
 }
 
 /**
@@ -332,6 +387,14 @@ export async function fetchKostPhotosFromGoogleSheet(
         success: true,
         photos: data.photos,
         message: 'Berhasil memuat foto kost dari Google Sheet.',
+      };
+    }
+
+    if (data && data.status === 'online' && !data.photos) {
+      return {
+        success: false,
+        isLegacyScript: true,
+        message: 'Google Apps Script masih versi lama (belum mendukung Foto_Kost).',
       };
     }
 

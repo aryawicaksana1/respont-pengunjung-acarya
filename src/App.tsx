@@ -90,6 +90,7 @@ export default function App() {
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [isLegacyScriptDetected, setIsLegacyScriptDetected] = useState(false);
 
   // Centralized Kost Photos (Shared & synced via Google Sheet)
   const [acarya1Image, setAcarya1Image] = useState<string>(() => {
@@ -146,6 +147,12 @@ export default function App() {
         const res = await fetchFeedbacksFromGoogleSheets(settings.googleAppsScriptUrl);
         if (!isMounted) return;
 
+        if (res.isLegacyScript) {
+          setIsLegacyScriptDetected(true);
+        } else if (res.success) {
+          setIsLegacyScriptDetected(false);
+        }
+
         if (res.success && res.feedbacks) {
           // Sinkronisasi data ulasan resmi dari Google Sheet
           setFeedbacks(res.feedbacks);
@@ -167,18 +174,23 @@ export default function App() {
         } else {
           // Extra check jika skrip lama merespon read tanpa photos
           const photoRes = await fetchKostPhotosFromGoogleSheet(settings.googleAppsScriptUrl);
-          if (isMounted && photoRes.success && photoRes.photos) {
-            if (photoRes.photos.acarya1) {
-              setAcarya1Image(photoRes.photos.acarya1);
-              try {
-                localStorage.setItem('kost_acarya_1_image', photoRes.photos.acarya1);
-              } catch {}
+          if (isMounted) {
+            if (photoRes.isLegacyScript) {
+              setIsLegacyScriptDetected(true);
             }
-            if (photoRes.photos.acarya2) {
-              setAcarya2Image(photoRes.photos.acarya2);
-              try {
-                localStorage.setItem('kost_acarya_2_image', photoRes.photos.acarya2);
-              } catch {}
+            if (photoRes.success && photoRes.photos) {
+              if (photoRes.photos.acarya1) {
+                setAcarya1Image(photoRes.photos.acarya1);
+                try {
+                  localStorage.setItem('kost_acarya_1_image', photoRes.photos.acarya1);
+                } catch {}
+              }
+              if (photoRes.photos.acarya2) {
+                setAcarya2Image(photoRes.photos.acarya2);
+                try {
+                  localStorage.setItem('kost_acarya_2_image', photoRes.photos.acarya2);
+                } catch {}
+              }
             }
           }
         }
@@ -362,7 +374,11 @@ export default function App() {
     if (settings.googleAppsScriptUrl) {
       const res = await saveKostPhotoToGoogleSheet(settings.googleAppsScriptUrl, branch, newImageUrl);
       setIsSavingPhoto(false);
-      if (res.success) {
+      if (res.isLegacyScript) {
+        setIsLegacyScriptDetected(true);
+        showToast('info', `Foto tersimpan di browser ini. Perbarui kode Google Sheet Anda agar tampil untuk pengunjung lain.`);
+      } else if (res.success) {
+        setIsLegacyScriptDetected(false);
         showToast('success', `Foto ${branch} berhasil disimpan permanen ke Google Sheet untuk seluruh pengunjung!`);
       } else {
         showToast('info', `Foto ${branch} disimpan di sistem peramban lokal.`);
@@ -438,6 +454,26 @@ export default function App() {
         onAdminLogout={handleAdminLogout}
       />
 
+      {/* Admin Legacy Script Warning Banner */}
+      {isAdmin && isLegacyScriptDetected && (
+        <div className="bg-amber-100 border-b border-amber-300 px-4 py-3 shadow-2xs">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs sm:text-sm text-amber-950">
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-amber-800 shrink-0" />
+              <span>
+                <strong>Perhatian Admin:</strong> Skrip Google Apps Script di Spreadsheet Anda masih versi lama. Foto kost dan sinkronisasi penghapusan belum aktif untuk pengunjung lain sampai Anda memperbarui kode di Google Sheet.
+              </span>
+            </div>
+            <button
+              onClick={() => setActiveTab('guide')}
+              className="px-3.5 py-1.5 rounded-xl bg-amber-800 hover:bg-amber-900 text-white font-bold text-xs shrink-0 transition-colors shadow-2xs flex items-center gap-1.5"
+            >
+              <span>Buka Panduan & Salin Kode</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Floating Toast Notification */}
       {toast && (
         <div className="fixed top-20 right-4 z-50 animate-in slide-in-from-top-4 duration-300">
@@ -498,6 +534,7 @@ export default function App() {
                 onSaveCustomImage={handleSaveKostPhoto}
                 onResetDefaultImage={handleResetKostPhoto}
                 isSavingPhotoOnline={isSavingPhoto}
+                isLegacyScript={isLegacyScriptDetected}
               />
             )}
           </>
