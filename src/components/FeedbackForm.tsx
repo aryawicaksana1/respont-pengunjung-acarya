@@ -35,6 +35,11 @@ interface FeedbackFormProps {
   isAdmin?: boolean;
   adminPin?: string;
   onAdminLoginSuccess?: () => void;
+  acarya1Image?: string;
+  acarya2Image?: string;
+  onSaveCustomImage?: (branch: KostBranch, newImageUrl: string) => Promise<void> | void;
+  onResetDefaultImage?: (branch: KostBranch) => void;
+  isSavingPhotoOnline?: boolean;
 }
 
 export const FeedbackForm: React.FC<FeedbackFormProps> = ({
@@ -45,6 +50,11 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
   isAdmin = false,
   adminPin = 'acaryasingaraja',
   onAdminLoginSuccess,
+  acarya1Image: propAcarya1,
+  acarya2Image: propAcarya2,
+  onSaveCustomImage,
+  onResetDefaultImage,
+  isSavingPhotoOnline = false,
 }) => {
   // Current date & time defaults
   const today = new Date();
@@ -54,7 +64,7 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
   // Selected Kost Branch (Acarya 1 or Acarya 2)
   const [kostLokasi, setKostLokasi] = useState<KostBranch | null>(null);
 
-  // Custom Kost photos (persisted in localStorage)
+  // Custom Kost photos (fallback to localStorage or defaults)
   const [acarya1Image, setAcarya1Image] = useState<string>(() => {
     try {
       return localStorage.getItem('kost_acarya_1_image') || 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80';
@@ -71,9 +81,12 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
     }
   });
 
+  const currentAcarya1 = propAcarya1 || acarya1Image;
+  const currentAcarya2 = propAcarya2 || acarya2Image;
+
   const [photoModalBranch, setPhotoModalBranch] = useState<KostBranch | null>(null);
 
-  const handleSaveCustomImage = (branch: KostBranch, newImageUrl: string) => {
+  const handleSaveCustomImage = async (branch: KostBranch, newImageUrl: string) => {
     if (branch === 'Kost Acarya 1') {
       setAcarya1Image(newImageUrl);
       setImg1Error(false);
@@ -91,9 +104,16 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
         console.warn('LocalStorage save failed', e);
       }
     }
+
+    if (onSaveCustomImage) {
+      await onSaveCustomImage(branch, newImageUrl);
+    }
   };
 
   const handleResetDefaultImage = (branch: KostBranch) => {
+    if (onResetDefaultImage) {
+      onResetDefaultImage(branch);
+    }
     if (branch === 'Kost Acarya 1') {
       const defaultUrl = 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80';
       setAcarya1Image(defaultUrl);
@@ -376,7 +396,7 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
               <div className="relative aspect-[16/10] overflow-hidden bg-stone-100">
                 {!img1Error ? (
                   <img
-                    src={acarya1Image}
+                    src={currentAcarya1}
                     alt="Foto Kost Acarya 1"
                     onError={() => setImg1Error(true)}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -517,7 +537,7 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
               <div className="relative aspect-[16/10] overflow-hidden bg-stone-100">
                 {!img2Error ? (
                   <img
-                    src={acarya2Image}
+                    src={currentAcarya2}
                     alt="Foto Kost Acarya 2"
                     onError={() => setImg2Error(true)}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -1019,13 +1039,14 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
       {photoModalBranch && (
         <KostPhotoModal
           branch={photoModalBranch}
-          currentImage={photoModalBranch === 'Kost Acarya 1' ? acarya1Image : acarya2Image}
+          currentImage={photoModalBranch === 'Kost Acarya 1' ? currentAcarya1 : currentAcarya2}
           onSaveImage={handleSaveCustomImage}
           onResetDefault={handleResetDefaultImage}
           onClose={() => setPhotoModalBranch(null)}
           isAdmin={isAdmin}
           storedPin={adminPin}
           onAdminUnlocked={onAdminLoginSuccess}
+          isSavingOnline={isSavingPhotoOnline}
         />
       )}
     </div>

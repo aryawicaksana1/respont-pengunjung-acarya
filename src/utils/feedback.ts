@@ -210,34 +210,174 @@ export function generateSpreadsheetCSV(feedbacks: VisitorFeedback[]): string {
   return [headers.join(','), ...rows].join('\r\n');
 }
 
+export function normalizeImageUrl(url: string): string {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+
+  // Convert Google Drive sharing link to direct embed URL
+  // Format 1: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+  const gDriveMatch1 = trimmed.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (gDriveMatch1 && gDriveMatch1[1]) {
+    return `https://lh3.googleusercontent.com/d/${gDriveMatch1[1]}`;
+  }
+
+  // Format 2: https://drive.google.com/open?id=FILE_ID
+  const gDriveMatch2 = trimmed.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+  if (gDriveMatch2 && gDriveMatch2[1]) {
+    return `https://lh3.googleusercontent.com/d/${gDriveMatch2[1]}`;
+  }
+
+  // Convert Dropbox share link dl=0 to raw=1
+  if (trimmed.includes('dropbox.com') && trimmed.includes('dl=0')) {
+    return trimmed.replace('dl=0', 'raw=1');
+  }
+
+  return trimmed;
+}
+
+/**
+ * Kompresi file gambar di sisi client (browser) menggunakan Canvas.
+ * Mengurangi ukuran file foto dari beberapa MB menjadi ~100-250KB sehingga
+ * cepat dan aman dikirim serta disimpan ke spreadsheet tanpa membebani kuota data.
+ */
+export function compressImageFile(
+  file: File,
+  maxWidth = 1200,
+  maxHeight = 800,
+  quality = 0.82
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (typeof FileReader === 'undefined') {
+      reject(new Error('FileReader not supported'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(e.target?.result as string);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        try {
+          const webpData = canvas.toDataURL('image/webp', quality);
+          if (webpData.startsWith('data:image/webp')) {
+            resolve(webpData);
+            return;
+          }
+        } catch {
+          // ignore fallback
+        }
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => reject(new Error('Gagal memproses gambar'));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Gagal membaca file gambar'));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function getGoogleAppsScriptCode(): string {
   return `/**
  * ============================================================================
- * GOOGLE APPS SCRIPT: PENDAPAT & BUKU TAMU KOST ACARYA 2
+ * GOOGLE APPS SCRIPT: PENDAPAT, BUKU TAMU & FOTO KOST ACARYA 1 & 2
  * ============================================================================
- * Script ini berfungsi sebagai Webhook backend otomatis yang menerima data
- * tanggapan/survei pengunjung dari Webapp Kost Acarya 2 dan menyimpannya secara
- * rapi ke Google Spreadsheet.
- *
- * FITUR OTOMATIS:
- * 1. Otomatis membuat Header Berwarna Rapi & Freeze Baris Pertama jika sheet baru.
- * 2. Format Timestamp Waktu Indonesia Barat (WIB).
- * 3. Menghitung Rata-rata Skor Penilaian secara presisi.
- * 4. Auto-resize lebar kolom agar teks tidak terpotong.
- * 5. Aman dari balapan request dengan LockService.
+ * Script ini berfungsi sebagai Webhook backend otomatis yang:
+ * 1. Menerima data ulasan pengunjung & menyimpannya rapi di sheet "Tanggapan Pengunjung".
+ * 2. Menyimpan dan menyinkronkan Foto Kost Acarya 1 & 2 secara permanen di sheet "Foto_Kost".
+ * 3. Mendukung sinkronisasi penghapusan 2 arah: jika baris ulasan di spreadsheet dihapus
+ *    oleh pengelola, ulasan di website juga otomatis hilang!
+ * 4. Menyediakan endpoint GET dan POST yang aman dari balapan data dengan LockService.
  * ============================================================================
  */
 
-// Nama Tab Sheet yang digunakan (Bisa diubah jika diinginkan)
+// Nama Tab Sheet ulasan pengunjung
 var SHEET_NAME = "Tanggapan Pengunjung";
+// Nama Tab Sheet foto kost permanen
+var SHEET_PHOTOS = "Foto_Kost";
 
 function doPost(e) {
   var lock = LockService.getScriptLock();
-  // Tunggu maksimal 15 detik jika ada pengiriman bersamaan
   lock.tryLock(15000);
 
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Parsing data JSON atau parameter Form
+    var data = {};
+    if (e.postData && e.postData.contents) {
+      try {
+        data = JSON.parse(e.postData.contents);
+      } catch (err) {
+        data = e.parameter || {};
+      }
+    } else {
+      data = e.parameter || {};
+    }
+
+    // ========================================================================
+    // AKSI 1: SIMPAN FOTO KOST PERMANEN KE TAB "Foto_Kost"
+    // ========================================================================
+    if (data.action === "save_photo") {
+      var photoSheet = ss.getSheetByName(SHEET_PHOTOS);
+      if (!photoSheet) {
+        photoSheet = ss.insertSheet(SHEET_PHOTOS);
+      }
+      setupPhotosSheetHeader(photoSheet);
+
+      var branch = data.branch || "Kost Acarya 2";
+      var photoUrl = data.photoUrl || "";
+      var now = new Date();
+      var timestampWIB = Utilities.formatDate(now, "Asia/Jakarta", "dd/MM/yyyy HH:mm:ss");
+
+      var lastRow = photoSheet.getLastRow();
+      var foundRow = -1;
+
+      if (lastRow > 1) {
+        var existingData = photoSheet.getRange(2, 1, lastRow - 1, 1).getValues();
+        for (var i = 0; i < existingData.length; i++) {
+          if (String(existingData[i][0]).trim().toLowerCase() === branch.trim().toLowerCase()) {
+            foundRow = i + 2;
+            break;
+          }
+        }
+      }
+
+      if (foundRow > 0) {
+        photoSheet.getRange(foundRow, 2).setValue(photoUrl);
+        photoSheet.getRange(foundRow, 3).setValue(timestampWIB);
+      } else {
+        photoSheet.appendRow([branch, photoUrl, timestampWIB]);
+      }
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        action: "save_photo",
+        message: "Foto " + branch + " berhasil disimpan permanen ke Google Sheet!",
+        branch: branch,
+        photoUrl: photoUrl,
+        timestamp: timestampWIB
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
     var sheet = ss.getSheetByName(SHEET_NAME);
     
     // Jika tab belum ada, buat tab baru dengan nama tersebut
@@ -326,12 +466,33 @@ function doPost(e) {
   }
 }
 
-// Endpoint GET untuk membaca data buku tamu dari Google Sheet atau cek status (Mendukung Sinkronisasi & Penghapusan 2-Arah)
+// Endpoint GET untuk membaca data buku tamu dari Google Sheet atau cek status (Mendukung Sinkronisasi & Penghapusan 2-Arah serta Foto Permanen)
 function doGet(e) {
   try {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var action = (e && e.parameter && e.parameter.action) ? String(e.parameter.action).trim() : "read";
+
+    // 1. Aksi Khusus: Ambil Data Foto Kost
+    if (action === "get_photos") {
+      var photos = getPhotosFromSheet(ss);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        action: "get_photos",
+        photos: photos,
+        timestamp: Utilities.formatDate(new Date(), "Asia/Jakarta", "dd/MM/yyyy HH:mm:ss")
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 2. Aksi Standar: Baca Data Buku Tamu & Sekaligus Ambil Foto Terbaru
+    var sheet = ss.getSheetByName(SHEET_NAME);
+    if (!sheet) {
+      sheet = ss.insertSheet(SHEET_NAME);
+      setupSheetHeader(sheet);
+    }
+
     var lastRow = sheet.getLastRow();
     var lastCol = sheet.getLastColumn();
+    var currentPhotos = getPhotosFromSheet(ss);
 
     // Jika sheet masih kosong atau hanya baris header
     if (lastRow <= 1) {
@@ -339,18 +500,19 @@ function doGet(e) {
         status: "success",
         total: 0,
         feedbacks: [],
+        photos: currentPhotos,
         timestamp: Utilities.formatDate(new Date(), "Asia/Jakarta", "dd/MM/yyyy HH:mm:ss")
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // Ambil seluruh baris ulasan mulai dari baris ke-2
+    // Ambil seluruh baris ulasan mulai dari baris ke-2 (Baris yang dihapus di sheet otomatis TIDAK akan ada di sini)
     var data = sheet.getRange(2, 1, lastRow - 1, Math.max(lastCol, 17)).getValues();
     var feedbacks = [];
 
     for (var i = 0; i < data.length; i++) {
       var row = data[i];
       var nama = row[2] ? String(row[2]).trim() : "";
-      if (!nama) continue; // Lewati baris kosong jika ada
+      if (!nama || nama === "-") continue; // Lewati baris kosong atau terhapus
 
       var rawTimestamp = row[0];
       var formattedDate = "";
@@ -397,13 +559,14 @@ function doGet(e) {
       });
     }
 
-    // Urutkan dari data paling baru
+    // Urutkan dari data ulasan paling baru
     feedbacks.reverse();
 
     return ContentService.createTextOutput(JSON.stringify({
       status: "success",
       total: feedbacks.length,
       feedbacks: feedbacks,
+      photos: currentPhotos,
       timestamp: Utilities.formatDate(new Date(), "Asia/Jakarta", "dd/MM/yyyy HH:mm:ss")
     })).setMimeType(ContentService.MimeType.JSON);
 
@@ -411,8 +574,59 @@ function doGet(e) {
     return ContentService.createTextOutput(JSON.stringify({
       status: "error",
       message: "Gagal membaca baris Google Sheet: " + err.toString(),
-      feedbacks: []
+      feedbacks: [],
+      photos: {}
     })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Membaca URL foto Kost Acarya 1 & 2 dari tab Foto_Kost
+ */
+function getPhotosFromSheet(ss) {
+  var photoObj = {};
+  try {
+    var photoSheet = ss.getSheetByName(SHEET_PHOTOS);
+    if (!photoSheet) return photoObj;
+
+    var lastRow = photoSheet.getLastRow();
+    if (lastRow <= 1) return photoObj;
+
+    var data = photoSheet.getRange(2, 1, lastRow - 1, 2).getValues();
+    for (var i = 0; i < data.length; i++) {
+      var branchName = String(data[i][0]).trim().toLowerCase();
+      var photoUrl = String(data[i][1] || "").trim();
+      if (!photoUrl) continue;
+
+      if (branchName.indexOf("acarya 1") !== -1 || branchName.indexOf("cabang 1") !== -1) {
+        photoObj.acarya1 = photoUrl;
+      } else if (branchName.indexOf("acarya 2") !== -1 || branchName.indexOf("cabang 2") !== -1) {
+        photoObj.acarya2 = photoUrl;
+      }
+    }
+  } catch (e) {
+    // abaikan jika tab belum ada
+  }
+  return photoObj;
+}
+
+/**
+ * Header untuk tab Foto_Kost
+ */
+function setupPhotosSheetHeader(sheet) {
+  if (sheet.getLastRow() === 0) {
+    var headers = ["Cabang Kost", "URL Foto Bangunan", "Terakhir Diperbarui (WIB)"];
+    sheet.appendRow(headers);
+    var headerRange = sheet.getRange(1, 1, 1, headers.length);
+    headerRange.setBackground("#0F766E"); // Teal elegan
+    headerRange.setFontColor("#FFFFFF");
+    headerRange.setFontWeight("bold");
+    headerRange.setHorizontalAlignment("center");
+    headerRange.setVerticalAlignment("middle");
+    sheet.setRowHeight(1, 35);
+    sheet.setColumnWidth(1, 180);
+    sheet.setColumnWidth(2, 420);
+    sheet.setColumnWidth(3, 200);
   }
 }
 

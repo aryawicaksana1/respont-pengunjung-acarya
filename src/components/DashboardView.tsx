@@ -30,6 +30,7 @@ import { Home } from 'lucide-react';
 interface DashboardViewProps {
   feedbacks: VisitorFeedback[];
   onSyncAll: () => Promise<void>;
+  onRefreshFromSheet?: () => Promise<void>;
   isSyncing: boolean;
   isSheetsConfigured: boolean;
   onOpenGuide: () => void;
@@ -38,6 +39,7 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = ({
   feedbacks,
   onSyncAll,
+  onRefreshFromSheet,
   isSyncing,
   isSheetsConfigured,
   onOpenGuide,
@@ -123,6 +125,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {isSheetsConfigured && onRefreshFromSheet && (
+            <button
+              onClick={onRefreshFromSheet}
+              disabled={isSyncing}
+              className="px-4 py-2.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-xs disabled:opacity-50"
+              title="Perbarui ulasan dari Google Sheet. Jika baris di sheet dihapus, ulasan di web juga otomatis terhapus."
+            >
+              <RefreshCw className={`w-4 h-4 text-emerald-700 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>Segarkan dari Sheet</span>
+            </button>
+          )}
+
           {unsyncedCount > 0 && isSheetsConfigured && (
             <button
               onClick={onSyncAll}

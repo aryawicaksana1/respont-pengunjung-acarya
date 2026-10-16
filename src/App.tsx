@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { VisitorFeedback, AppSettings } from './types/feedback.ts';
+import type { VisitorFeedback, AppSettings, KostBranch } from './types/feedback.ts';
 import { DEFAULT_SETTINGS, INITIAL_FEEDBACK_SEED } from './data/seedData.ts';
 import { Header } from './components/Header.tsx';
 import { FeedbackForm } from './components/FeedbackForm.tsx';
@@ -10,7 +10,12 @@ import { KostInfoModal } from './components/KostInfoModal.tsx';
 import { QRCodeModal } from './components/QRCodeModal.tsx';
 import { AdminLoginModal } from './components/AdminLoginModal.tsx';
 import { Footer } from './components/Footer.tsx';
-import { sendFeedbackToGoogleAppsScript } from './services/googleSheets.ts';
+import { 
+  sendFeedbackToGoogleAppsScript, 
+  fetchFeedbacksFromGoogleSheets,
+  saveKostPhotoToGoogleSheet,
+  fetchKostPhotosFromGoogleSheet
+} from './services/googleSheets.ts';
 import { CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 
 export default function App() {
@@ -81,9 +86,37 @@ export default function App() {
   const [lastSubmission, setLastSubmission] = useState<VisitorFeedback | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+
+  // Centralized Kost Photos (Shared & synced via Google Sheet)
+  const [acarya1Image, setAcarya1Image] = useState<string>(() => {
+    try {
+      return (
+        localStorage.getItem('kost_acarya_1_image') ||
+        settings.kostAcarya1Image ||
+        DEFAULT_SETTINGS.kostAcarya1Image ||
+        'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80'
+      );
+    } catch {
+      return DEFAULT_SETTINGS.kostAcarya1Image || 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80';
+    }
+  });
+
+  const [acarya2Image, setAcarya2Image] = useState<string>(() => {
+    try {
+      return (
+        localStorage.getItem('kost_acarya_2_image') ||
+        settings.kostAcarya2Image ||
+        DEFAULT_SETTINGS.kostAcarya2Image ||
+        'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80'
+      );
+    } catch {
+      return DEFAULT_SETTINGS.kostAcarya2Image || 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80';
+    }
+  });
 
   // Sync to localStorage
   useEffect(() => {
@@ -101,6 +134,65 @@ export default function App() {
       console.error('Failed to save settings to localStorage', e);
     }
   }, [settings]);
+
+  // Otomatis sinkronkan buku tamu dan foto terbaru dari Google Sheet saat web dibuka.
+  // Jika baris di Google Sheet dihapus oleh pengelola, ulasan di web juga otomatis terhapus!
+  useEffect(() => {
+    let isMounted = true;
+    async function loadDataFromGoogleSheet() {
+      if (!settings.googleAppsScriptUrl) return;
+
+      try {
+        const res = await fetchFeedbacksFromGoogleSheets(settings.googleAppsScriptUrl);
+        if (!isMounted) return;
+
+        if (res.success && res.feedbacks) {
+          // Sinkronisasi data ulasan resmi dari Google Sheet
+          setFeedbacks(res.feedbacks);
+        }
+
+        if (res.photos) {
+          if (res.photos.acarya1) {
+            setAcarya1Image(res.photos.acarya1);
+            try {
+              localStorage.setItem('kost_acarya_1_image', res.photos.acarya1);
+            } catch {}
+          }
+          if (res.photos.acarya2) {
+            setAcarya2Image(res.photos.acarya2);
+            try {
+              localStorage.setItem('kost_acarya_2_image', res.photos.acarya2);
+            } catch {}
+          }
+        } else {
+          // Extra check jika skrip lama merespon read tanpa photos
+          const photoRes = await fetchKostPhotosFromGoogleSheet(settings.googleAppsScriptUrl);
+          if (isMounted && photoRes.success && photoRes.photos) {
+            if (photoRes.photos.acarya1) {
+              setAcarya1Image(photoRes.photos.acarya1);
+              try {
+                localStorage.setItem('kost_acarya_1_image', photoRes.photos.acarya1);
+              } catch {}
+            }
+            if (photoRes.photos.acarya2) {
+              setAcarya2Image(photoRes.photos.acarya2);
+              try {
+                localStorage.setItem('kost_acarya_2_image', photoRes.photos.acarya2);
+              } catch {}
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Initial Google Sheet sync skipped', err);
+      }
+    }
+
+    loadDataFromGoogleSheet();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [settings.googleAppsScriptUrl]);
 
   // Guard active tab if not admin
   useEffect(() => {
@@ -253,6 +345,76 @@ export default function App() {
     }
   };
 
+  const handleSaveKostPhoto = async (branch: KostBranch, newImageUrl: string) => {
+    setIsSavingPhoto(true);
+    if (branch === 'Kost Acarya 1') {
+      setAcarya1Image(newImageUrl);
+      try {
+        localStorage.setItem('kost_acarya_1_image', newImageUrl);
+      } catch {}
+    } else {
+      setAcarya2Image(newImageUrl);
+      try {
+        localStorage.setItem('kost_acarya_2_image', newImageUrl);
+      } catch {}
+    }
+
+    if (settings.googleAppsScriptUrl) {
+      const res = await saveKostPhotoToGoogleSheet(settings.googleAppsScriptUrl, branch, newImageUrl);
+      setIsSavingPhoto(false);
+      if (res.success) {
+        showToast('success', `Foto ${branch} berhasil disimpan permanen ke Google Sheet untuk seluruh pengunjung!`);
+      } else {
+        showToast('info', `Foto ${branch} disimpan di sistem peramban lokal.`);
+      }
+    } else {
+      setIsSavingPhoto(false);
+      showToast('info', `Foto ${branch} disimpan lokal (Google Sheet belum terhubung).`);
+    }
+  };
+
+  const handleResetKostPhoto = (branch: KostBranch) => {
+    if (branch === 'Kost Acarya 1') {
+      const def = DEFAULT_SETTINGS.kostAcarya1Image || 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80';
+      setAcarya1Image(def);
+      try {
+        localStorage.removeItem('kost_acarya_1_image');
+      } catch {}
+    } else {
+      const def = DEFAULT_SETTINGS.kostAcarya2Image || 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80';
+      setAcarya2Image(def);
+      try {
+        localStorage.removeItem('kost_acarya_2_image');
+      } catch {}
+    }
+    showToast('info', `Foto ${branch} dikembalikan ke foto bawaan.`);
+  };
+
+  const handleRefreshFromSheet = async () => {
+    if (!settings.googleAppsScriptUrl) {
+      showToast('info', 'URL Google Apps Script belum dikonfigurasi.');
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      const res = await fetchFeedbacksFromGoogleSheets(settings.googleAppsScriptUrl);
+      if (res.success && res.feedbacks) {
+        setFeedbacks(res.feedbacks);
+        if (res.photos) {
+          if (res.photos.acarya1) setAcarya1Image(res.photos.acarya1);
+          if (res.photos.acarya2) setAcarya2Image(res.photos.acarya2);
+        }
+        showToast('success', `Data buku tamu tersinkron! (${res.feedbacks.length} data aktif dari Google Sheet).`);
+      } else {
+        showToast('error', res.message || 'Gagal menyegarkan data dari Google Sheet.');
+      }
+    } catch {
+      showToast('error', 'Gagal menyambung ke server Google Apps Script.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const isSheetsConfigured = Boolean(
     settings.googleAppsScriptUrl && settings.googleAppsScriptUrl.trim().startsWith('https://')
   );
@@ -331,6 +493,11 @@ export default function App() {
                     handleOpenAdminLogin('guide');
                   }
                 }}
+                acarya1Image={acarya1Image}
+                acarya2Image={acarya2Image}
+                onSaveCustomImage={handleSaveKostPhoto}
+                onResetDefaultImage={handleResetKostPhoto}
+                isSavingPhotoOnline={isSavingPhoto}
               />
             )}
           </>
@@ -341,6 +508,7 @@ export default function App() {
           <DashboardView
             feedbacks={feedbacks}
             onSyncAll={handleSyncAll}
+            onRefreshFromSheet={handleRefreshFromSheet}
             isSyncing={isSyncing}
             isSheetsConfigured={isSheetsConfigured}
             onOpenGuide={() => setActiveTab('guide')}

@@ -187,17 +187,18 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
         </div>
 
         {/* Modal Body: FULL, UNCUT, CRYSTAL-CLEAR DISPLAY */}
-        <div className="p-3.5 sm:p-5 overflow-y-auto bg-stone-50 flex flex-col items-center justify-center flex-1">
+        <div className="p-3.5 sm:p-6 overflow-y-auto bg-stone-50 flex flex-col items-center flex-1 w-full min-h-0">
+          <div className="w-full flex flex-col items-center py-2">
           
           {/* TAB 1: QR CODE PENUH (100% Full View, No Cutoff) */}
           {activeTab === 'qr_full' && (
-            <div className="w-full max-w-sm bg-white rounded-3xl p-5 sm:p-6 text-center shadow-lg border-2 border-stone-200 flex flex-col items-center">
+            <div className="w-full max-w-sm bg-white rounded-3xl p-4 sm:p-6 text-center shadow-lg border-2 border-stone-200 flex flex-col items-center">
               
               {/* Badge & Title */}
-              <div className="flex items-center justify-between w-full mb-2">
+              <div className="flex items-center justify-between w-full mb-1.5">
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-emerald-600" />
-                  <span>QR Code Resmi</span>
+                  <span>QR Code Penuh HD</span>
                 </span>
 
                 <button
@@ -217,16 +218,16 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
               </p>
 
               {/* QR Image Box (FULL VIEW, NO CROPPING) */}
-              <div className="my-3 p-3 bg-white rounded-2xl border-2 border-stone-900 shadow-md flex items-center justify-center">
+              <div className="my-2.5 p-2.5 sm:p-3 bg-white rounded-2xl border-2 border-stone-900 shadow-md flex items-center justify-center">
                 {isGenerating ? (
-                  <div className="w-52 h-52 sm:w-60 sm:h-60 flex items-center justify-center bg-stone-50 rounded-xl">
+                  <div className="w-44 h-44 sm:w-56 sm:h-56 flex items-center justify-center bg-stone-50 rounded-xl">
                     <span className="text-xs text-stone-400 animate-pulse font-medium">Memuat QR Code HD...</span>
                   </div>
                 ) : (
                   <img
                     src={qrDataUrl}
                     alt="QR Code Survei Kost Acarya 1 & 2"
-                    className="w-52 h-52 sm:w-60 sm:h-60 object-contain block mx-auto select-none"
+                    className="w-44 h-44 sm:w-56 sm:h-56 max-h-[35vh] aspect-square object-contain block mx-auto select-none"
                     style={{ imageRendering: 'pixelated' }}
                   />
                 )}
@@ -241,92 +242,98 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: BARCODE 1D PENUH (FULL LINEAR VIEW) */}
+          {/* TAB 2: BARCODE 1D PENUH (FULL LINEAR VIEW - 100% UTUH) */}
           {activeTab === 'barcode' && (
-            <div className="w-full max-w-sm bg-white rounded-3xl p-5 sm:p-6 text-center shadow-lg border-2 border-stone-200 flex flex-col items-center">
+            <div className="w-full max-w-sm bg-white rounded-3xl p-4 sm:p-6 text-center shadow-lg border-2 border-stone-200 flex flex-col items-center">
               
-              <div className="flex items-center justify-between w-full mb-2">
+              <div className="flex items-center justify-between w-full mb-1.5">
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                  Format Barcode 1D (Linear)
+                  Barcode 1D Linear (Full View)
                 </span>
-                <span className="text-[10px] text-stone-400 font-mono">Code 128 / Laser</span>
+                <span className="text-[10px] text-stone-500 font-mono font-semibold">Code-128 Laser</span>
               </div>
 
               <h3 className="text-lg font-extrabold text-stone-900 tracking-tight">
                 Kost Acarya 1 & 2
               </h3>
               <p className="text-[11px] text-stone-500">
-                Pemindai Barcode Meja / Resepsionis
+                Pemindai Barcode Meja / Laser Resepsionis
               </p>
 
-              {/* Full Linear Barcode SVG */}
-              <div className="my-4 w-full p-4 bg-white rounded-2xl border-2 border-stone-900 shadow-md flex flex-col items-center justify-center">
-                <div className="text-[10px] font-mono font-bold text-stone-700 tracking-widest mb-1">
-                  RESPONT-ACARYA.VERCEL.APP
+              {/* Full Linear Barcode Box with Quiet Zones (No Cutoff) */}
+              <div className="my-3 w-full p-3 sm:p-4 bg-white rounded-2xl border-2 border-stone-900 shadow-md flex flex-col items-center justify-center">
+                <div className="text-[11px] font-mono font-bold text-emerald-800 tracking-wider mb-2">
+                  respont-acarya.vercel.app
                 </div>
 
-                <svg
-                  className="w-full h-24 max-w-[300px]"
-                  viewBox="0 0 300 80"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <rect width="300" height="80" fill="white" />
-                  <g fill="#0f172a">
-                    {/* Guard bars */}
-                    <rect x="8" y="4" width="4" height="68" />
-                    <rect x="15" y="4" width="2" height="68" />
-                    <rect x="20" y="4" width="4" height="68" />
-                    
-                    {/* Data pattern bars */}
-                    <rect x="28" y="4" width="3" height="58" />
-                    <rect x="34" y="4" width="6" height="58" />
-                    <rect x="43" y="4" width="2" height="58" />
-                    <rect x="48" y="4" width="5" height="58" />
-                    <rect x="56" y="4" width="3" height="58" />
-                    <rect x="62" y="4" width="7" height="58" />
-                    <rect x="72" y="4" width="2" height="58" />
-                    <rect x="77" y="4" width="4" height="58" />
-                    <rect x="84" y="4" width="6" height="58" />
-                    <rect x="93" y="4" width="2" height="58" />
-                    <rect x="98" y="4" width="5" height="58" />
-                    <rect x="106" y="4" width="4" height="58" />
-                    <rect x="113" y="4" width="6" height="58" />
-                    <rect x="122" y="4" width="3" height="58" />
-                    <rect x="128" y="4" width="5" height="58" />
-                    <rect x="136" y="4" width="7" height="58" />
-                    <rect x="146" y="4" width="2" height="58" />
-                    <rect x="151" y="4" width="6" height="58" />
-                    <rect x="160" y="4" width="3" height="58" />
-                    <rect x="166" y="4" width="5" height="58" />
-                    <rect x="174" y="4" width="4" height="58" />
-                    <rect x="181" y="4" width="6" height="58" />
-                    <rect x="190" y="4" width="3" height="58" />
-                    <rect x="196" y="4" width="5" height="58" />
-                    <rect x="204" y="4" width="7" height="58" />
-                    <rect x="214" y="4" width="2" height="58" />
-                    <rect x="219" y="4" width="5" height="58" />
-                    <rect x="227" y="4" width="4" height="58" />
-                    <rect x="234" y="4" width="6" height="58" />
-                    <rect x="243" y="4" width="3" height="58" />
-                    <rect x="249" y="4" width="5" height="58" />
-                    <rect x="257" y="4" width="7" height="58" />
-                    <rect x="267" y="4" width="2" height="58" />
+                <div className="w-full flex items-center justify-center overflow-x-auto py-1">
+                  <svg
+                    className="w-full h-20 sm:h-24 max-w-[310px] shrink-0"
+                    viewBox="0 0 320 84"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <rect width="320" height="84" fill="white" rx="4" />
+                    <g fill="#0f172a">
+                      {/* Quiet zone & Start guard bars */}
+                      <rect x="12" y="6" width="4" height="72" />
+                      <rect x="18" y="6" width="2" height="72" />
+                      <rect x="23" y="6" width="4" height="72" />
+                      
+                      {/* Data pattern bars for respont-acarya.vercel.app */}
+                      <rect x="31" y="6" width="3" height="60" />
+                      <rect x="37" y="6" width="5" height="60" />
+                      <rect x="45" y="6" width="2" height="60" />
+                      <rect x="50" y="6" width="4" height="60" />
+                      <rect x="57" y="6" width="3" height="60" />
+                      <rect x="63" y="6" width="6" height="60" />
+                      <rect x="72" y="6" width="2" height="60" />
+                      <rect x="77" y="6" width="4" height="60" />
+                      <rect x="84" y="6" width="5" height="60" />
+                      <rect x="92" y="6" width="2" height="60" />
+                      <rect x="97" y="6" width="5" height="60" />
+                      <rect x="105" y="6" width="3" height="60" />
+                      <rect x="111" y="6" width="6" height="60" />
+                      <rect x="120" y="6" width="3" height="60" />
+                      <rect x="126" y="6" width="4" height="60" />
+                      <rect x="133" y="6" width="6" height="60" />
+                      <rect x="142" y="6" width="2" height="60" />
+                      <rect x="147" y="6" width="5" height="60" />
+                      <rect x="155" y="6" width="3" height="60" />
+                      <rect x="161" y="6" width="5" height="60" />
+                      <rect x="169" y="6" width="4" height="60" />
+                      <rect x="176" y="6" width="5" height="60" />
+                      <rect x="184" y="6" width="3" height="60" />
+                      <rect x="190" y="6" width="5" height="60" />
+                      <rect x="198" y="6" width="6" height="60" />
+                      <rect x="207" y="6" width="2" height="60" />
+                      <rect x="212" y="6" width="5" height="60" />
+                      <rect x="220" y="6" width="4" height="60" />
+                      <rect x="227" y="6" width="5" height="60" />
+                      <rect x="235" y="6" width="3" height="60" />
+                      <rect x="241" y="6" width="5" height="60" />
+                      <rect x="249" y="6" width="6" height="60" />
+                      <rect x="258" y="6" width="2" height="60" />
+                      <rect x="263" y="6" width="5" height="60" />
+                      <rect x="271" y="6" width="4" height="60" />
+                      <rect x="278" y="6" width="6" height="60" />
+                      <rect x="287" y="6" width="2" height="60" />
 
-                    {/* End guard bars */}
-                    <rect x="272" y="4" width="4" height="68" />
-                    <rect x="279" y="4" width="2" height="68" />
-                    <rect x="284" y="4" width="4" height="68" />
-                  </g>
-                </svg>
+                      {/* End guard bars & Quiet zone */}
+                      <rect x="293" y="6" width="4" height="72" />
+                      <rect x="299" y="6" width="2" height="72" />
+                      <rect x="304" y="6" width="4" height="72" />
+                    </g>
+                  </svg>
+                </div>
 
-                <div className="text-xs font-mono font-bold text-stone-900 tracking-wider mt-1">
+                <div className="text-xs font-mono font-extrabold text-stone-900 tracking-wider mt-2 bg-stone-100 px-3 py-1 rounded-md border border-stone-200">
                   *RESPONT-ACARYA-VERCEL-APP*
                 </div>
               </div>
 
               <p className="text-[11px] text-stone-500">
-                Dapat dipindai langsung menggunakan scanner barcode optik meja
+                Dapat dipindai langsung menggunakan scanner barcode optik / kamera HP
               </p>
             </div>
           )}
@@ -425,6 +432,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
             <span>WhatsApp Pengelola: {kostPhone}</span>
             <ExternalLink className="w-3 h-3 text-stone-400" />
           </a>
+          </div>
         </div>
 
         {/* Modal Actions Footer with Clear "Kembali" Button */}

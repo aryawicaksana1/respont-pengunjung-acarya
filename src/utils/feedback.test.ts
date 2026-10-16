@@ -8,6 +8,7 @@ import {
   getRatingSentimentLabel,
   getGoogleAppsScriptCode,
   verifyAdminPin,
+  normalizeImageUrl,
 } from './feedback.ts';
 import type { VisitorFeedback } from '../types/feedback.ts';
 
@@ -104,10 +105,28 @@ test('generateSpreadsheetCSV generates valid formatted CSV with headers', () => 
   assert.ok(csv.includes('Lingkungan sangat asri dan bersih'));
 });
 
-test('getGoogleAppsScriptCode includes doPost, doGet, and setupSheetHeader', () => {
+test('getGoogleAppsScriptCode includes doPost, doGet, photo endpoints, and setupSheetHeader', () => {
   const code = getGoogleAppsScriptCode();
   assert.ok(code.includes('function doPost(e)'));
   assert.ok(code.includes('function doGet(e)'));
   assert.ok(code.includes('function setupSheetHeader(sheet)'));
   assert.ok(code.includes('SHEET_NAME'));
+  assert.ok(code.includes('save_photo'));
+  assert.ok(code.includes('get_photos'));
+  assert.ok(code.includes('Foto_Kost'));
 });
+
+test('normalizeImageUrl converts Google Drive and Dropbox share links to direct embed URLs', () => {
+  const gDriveViewUrl = 'https://drive.google.com/file/d/1AbC_xyz-987/view?usp=sharing';
+  assert.equal(normalizeImageUrl(gDriveViewUrl), 'https://lh3.googleusercontent.com/d/1AbC_xyz-987');
+
+  const gDriveOpenUrl = 'https://drive.google.com/open?id=2BbC_xyz-987';
+  assert.equal(normalizeImageUrl(gDriveOpenUrl), 'https://lh3.googleusercontent.com/d/2BbC_xyz-987');
+
+  const regularUrl = 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914';
+  assert.equal(normalizeImageUrl(regularUrl), regularUrl);
+
+  const dropboxUrl = 'https://www.dropbox.com/s/12345/foto.jpg?dl=0';
+  assert.equal(normalizeImageUrl(dropboxUrl), 'https://www.dropbox.com/s/12345/foto.jpg?raw=1');
+});
+

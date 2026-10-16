@@ -218,6 +218,18 @@ export const GoogleSheetsGuideModal: React.FC<GoogleSheetsGuideModalProps> = ({
             <strong>Langkah Terakhir:</strong> Setelah klik <em>Deploy</em>, salin <strong>URL Aplikasi Web (Web App URL)</strong> yang berakhiran <code className="bg-emerald-100 px-1 py-0.5 rounded">.../exec</code>, lalu tempelkan ke kolom input di atas dan tekan <strong>Simpan URL</strong>.
           </div>
         </div>
+
+        {/* Feature highlight box */}
+        <div className="mt-4 p-4 rounded-xl bg-stone-50 border border-stone-200 text-xs sm:text-sm text-stone-700 space-y-1.5">
+          <p className="font-bold text-stone-900 flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4 text-emerald-700" />
+            <span>Fitur Baru pada Skrip Ini:</span>
+          </p>
+          <ul className="list-disc list-inside space-y-1 text-stone-600 text-xs pl-1">
+            <li><strong>Foto Kost Permanen:</strong> Foto Kost Acarya 1 & 2 disimpan di tab <code className="bg-stone-200 px-1 py-0.5 rounded text-[11px]">Foto_Kost</code> sehingga otomatis tampil untuk seluruh pengunjung website.</li>
+            <li><strong>Sinkronisasi Hapus Baris:</strong> Jika Anda menghapus baris tanggapan di Google Sheet, ulasan di website juga akan otomatis terhapus saat dimuat ulang atau saat tombol <em>&ldquo;Segarkan dari Sheet&rdquo;</em> ditekan.</li>
+          </ul>
+        </div>
       </div>
 
       {/* Code Viewer */}

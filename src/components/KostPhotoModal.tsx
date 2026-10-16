@@ -15,20 +15,24 @@ import {
   EyeOff, 
   ShieldCheck, 
   AlertCircle,
-  ArrowLeft 
+  ArrowLeft,
+  Cloud,
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import type { KostBranch } from '../types/feedback.ts';
-import { verifyAdminPin } from '../utils/feedback.ts';
+import { verifyAdminPin, normalizeImageUrl, compressImageFile } from '../utils/feedback.ts';
 
 interface KostPhotoModalProps {
   branch: KostBranch;
   currentImage: string;
-  onSaveImage: (branch: KostBranch, newImageUrl: string) => void;
+  onSaveImage: (branch: KostBranch, newImageUrl: string) => Promise<void> | void;
   onResetDefault: (branch: KostBranch) => void;
   onClose: () => void;
   isAdmin?: boolean;
   storedPin?: string;
   onAdminUnlocked?: () => void;
+  isSavingOnline?: boolean;
 }
 
 export const PRESET_PHOTOS_ACARYA_1 = [
@@ -81,11 +85,14 @@ export const KostPhotoModal: React.FC<KostPhotoModalProps> = ({
   isAdmin = false,
   storedPin = 'acaryasingaraja',
   onAdminUnlocked,
+  isSavingOnline = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'view' | 'upload' | 'preset'>('view');
   const [urlInput, setUrlInput] = useState('');
   const [previewUrl, setPreviewUrl] = useState(currentImage);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [syncStatusMsg, setSyncStatusMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Local admin verification state for in-modal unlocking
@@ -98,13 +105,14 @@ export const KostPhotoModal: React.FC<KostPhotoModalProps> = ({
   const presets = branch === 'Kost Acarya 1' ? PRESET_PHOTOS_ACARYA_1 : PRESET_PHOTOS_ACARYA_2;
   const isAcarya1 = branch === 'Kost Acarya 1';
 
-  // Handle local file upload (converts to base64)
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle local file upload with smart Canvas compression
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!effectiveIsAdmin) {
       setUploadError('Hanya Admin yang memiliki hak mengganti foto kost.');
       return;
     }
     setUploadError(null);
+    setSyncStatusMsg(null);
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -113,50 +121,52 @@ export const KostPhotoModal: React.FC<KostPhotoModalProps> = ({
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError('Ukuran file maksimal 5MB. Coba kompres atau pilih foto lain.');
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError('Ukuran file maksimal 10MB. Coba pilih foto lain.');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      if (result) {
-        setPreviewUrl(result);
-        onSaveImage(branch, result);
-        setActiveTab('view');
-      }
-    };
-    reader.onerror = () => {
-      setUploadError('Gagal membaca file gambar.');
-    };
-    reader.readAsDataURL(file);
+    try {
+      setIsCompressing(true);
+      const optimizedDataUrl = await compressImageFile(file, 1280, 850, 0.82);
+      setPreviewUrl(optimizedDataUrl);
+      setIsCompressing(false);
+      await onSaveImage(branch, optimizedDataUrl);
+      setSyncStatusMsg('Foto berhasil diunggah dan disimpan permanen untuk semua pengunjung!');
+      setActiveTab('view');
+    } catch (err) {
+      setIsCompressing(false);
+      setUploadError('Gagal memproses gambar. Coba format file lain.');
+    }
   };
 
-  const handleApplyUrl = () => {
+  const handleApplyUrl = async () => {
     if (!effectiveIsAdmin) {
       setUploadError('Hanya Admin yang memiliki hak mengganti foto kost.');
       return;
     }
     if (!urlInput.trim()) return;
     try {
-      new URL(urlInput.trim());
-      setPreviewUrl(urlInput.trim());
-      onSaveImage(branch, urlInput.trim());
+      const normalized = normalizeImageUrl(urlInput.trim());
+      new URL(normalized);
+      setPreviewUrl(normalized);
       setUrlInput('');
+      setSyncStatusMsg('Tautan foto berhasil disimpan ke Google Sheet & aktif untuk semua pengunjung!');
+      await onSaveImage(branch, normalized);
       setActiveTab('view');
     } catch {
       setUploadError('Format URL tidak valid. Pastikan diawali https://');
     }
   };
 
-  const handleSelectPreset = (url: string) => {
+  const handleSelectPreset = async (url: string) => {
     if (!effectiveIsAdmin) {
       setUploadError('Hanya Admin yang memiliki hak mengganti foto kost.');
       return;
     }
     setPreviewUrl(url);
-    onSaveImage(branch, url);
+    setSyncStatusMsg('Preset foto terpilih dan disimpan permanen untuk semua pengunjung!');
+    await onSaveImage(branch, url);
     setActiveTab('view');
   };
 
@@ -167,6 +177,7 @@ export const KostPhotoModal: React.FC<KostPhotoModalProps> = ({
     onResetDefault(branch);
     const defaultUrl = isAcarya1 ? PRESET_PHOTOS_ACARYA_1[0].url : PRESET_PHOTOS_ACARYA_2[0].url;
     setPreviewUrl(defaultUrl);
+    setSyncStatusMsg('Foto berhasil direset ke foto bawaan awal.');
     setActiveTab('view');
   };
 
@@ -292,6 +303,22 @@ export const KostPhotoModal: React.FC<KostPhotoModalProps> = ({
         {/* Body Content */}
         <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4">
           
+          {syncStatusMsg && (
+            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-semibold flex items-center justify-between gap-2 shadow-2xs animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span>{syncStatusMsg}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSyncStatusMsg(null)}
+                className="text-emerald-700 hover:text-emerald-950 font-bold text-sm px-1.5 py-0.5 rounded-md hover:bg-emerald-100"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* TAB 1: VIEW FULL PHOTO */}
           {activeTab === 'view' && (
             <div className="space-y-4">
@@ -449,18 +476,33 @@ export const KostPhotoModal: React.FC<KostPhotoModalProps> = ({
           {effectiveIsAdmin && activeTab === 'upload' && (
             <div className="space-y-5 animate-in fade-in duration-200">
               <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 text-xs sm:text-sm text-emerald-950 flex items-start gap-3">
-                <ShieldCheck className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
+                <Cloud className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-bold">Mode Pengelola: Unggah Foto Asli {branch}</p>
-                  <p className="text-emerald-800 text-xs mt-0.5">
-                    Pilih foto asli bangunan {branch} dari perangkat Anda. Foto langsung tersimpan di sistem peramban dan tampil di kartu pilihan buku tamu.
+                  <p className="font-bold">Penyimpanan Terpusat & Permanen: {branch}</p>
+                  <p className="text-emerald-800 text-xs mt-0.5 leading-relaxed">
+                    Setiap foto yang Anda unggah atau masukkan melalui link akan tersimpan di Google Sheet dan otomatis tampil ke seluruh pengunjung website di perangkat mana pun tanpa perlu diatur ulang.
                   </p>
                 </div>
               </div>
 
               {uploadError && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 text-xs font-medium">
-                  {uploadError}
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 text-xs font-medium flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{uploadError}</span>
+                </div>
+              )}
+
+              {isCompressing && (
+                <div className="p-3 rounded-xl bg-teal-50 border border-teal-200 text-teal-900 text-xs font-semibold flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 text-teal-700 animate-spin shrink-0" />
+                  <span>Sedang mengoptimalkan resolusi gambar untuk pengunggahan cepat...</span>
+                </div>
+              )}
+
+              {isSavingOnline && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-semibold flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 text-emerald-700 animate-spin shrink-0" />
+                  <span>Sedang menyinkronkan foto ke Google Sheet...</span>
                 </div>
               )}
 
@@ -485,12 +527,13 @@ export const KostPhotoModal: React.FC<KostPhotoModalProps> = ({
                     Klik untuk Memilih Foto dari HP / Komputer
                   </p>
                   <p className="text-xs text-stone-500 mt-1">
-                    Mendukung file JPG, PNG, atau WebP (Maksimal 5MB)
+                    Mendukung file JPG, PNG, atau WebP (Otomatis dikompresi agar hemat kuota)
                   </p>
                 </div>
                 <button
                   type="button"
-                  className="mt-2 px-4 py-2 rounded-xl bg-emerald-800 text-white font-semibold text-xs shadow-xs hover:bg-emerald-900 transition-colors"
+                  disabled={isCompressing || isSavingOnline}
+                  className="mt-2 px-4 py-2 rounded-xl bg-emerald-800 text-white font-semibold text-xs shadow-xs hover:bg-emerald-900 transition-colors disabled:opacity-50"
                 >
                   Pilih File Foto
                 </button>
@@ -498,24 +541,28 @@ export const KostPhotoModal: React.FC<KostPhotoModalProps> = ({
 
               {/* Or paste link */}
               <div className="pt-2 border-t border-stone-200">
-                <label className="block text-xs font-bold text-stone-800 mb-1.5">
+                <label className="block text-xs font-bold text-stone-800 mb-1">
                   Atau Masukkan Tautan / Link Gambar (URL):
                 </label>
+                <p className="text-[11px] text-stone-500 mb-2">
+                  Mendukung link publik dari Google Drive, ImgBB, Unsplash, atau hosting gambar lainnya.
+                </p>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <LinkIcon className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="url"
-                      placeholder="https://contoh.com/foto-kost-acarya.jpg"
+                      placeholder="https://drive.google.com/file/d/... atau https://contoh.com/foto.jpg"
                       value={urlInput}
                       onChange={(e) => setUrlInput(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-stone-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-600"
+                      className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-stone-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-600"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleApplyUrl}
-                    className="px-4 py-2 rounded-xl bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800 transition-colors shrink-0"
+                    disabled={isSavingOnline || !urlInput.trim()}
+                    className="px-4 py-2 rounded-xl bg-stone-900 text-white text-xs font-semibold hover:bg-stone-800 transition-colors shrink-0 disabled:opacity-50"
                   >
                     Terapkan URL
                   </button>

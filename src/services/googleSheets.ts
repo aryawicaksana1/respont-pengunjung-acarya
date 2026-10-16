@@ -127,6 +127,7 @@ export async function testGoogleAppsScriptConnection(url: string): Promise<{ suc
 export interface FetchFeedbacksResult {
   success: boolean;
   feedbacks?: VisitorFeedback[];
+  photos?: { acarya1?: string; acarya2?: string };
   message: string;
   isLegacyScript?: boolean;
 }
@@ -134,6 +135,7 @@ export interface FetchFeedbacksResult {
 /**
  * Mengambil seluruh data buku tamu langsung dari Google Sheet via doGet Apps Script.
  * Jika baris di Google Sheet dihapus oleh pengelola, maka data di website otomatis terhapus / tersinkron.
+ * Juga mengembalikan URL foto kost terkini jika tersedia di sheet.
  */
 export async function fetchFeedbacksFromGoogleSheets(scriptUrl: string): Promise<FetchFeedbacksResult> {
   if (!scriptUrl || !scriptUrl.trim().startsWith('http')) {
@@ -191,9 +193,12 @@ export async function fetchFeedbacksFromGoogleSheets(scriptUrl: string): Promise
         syncTimestamp: new Date().toISOString(),
       }));
 
+      const photos = data.photos && typeof data.photos === 'object' ? data.photos : undefined;
+
       return {
         success: true,
         feedbacks: sheetFeedbacks,
+        photos,
         message: `Berhasil memuat ${sheetFeedbacks.length} tanggapan terbaru dari Google Sheet.`,
       };
     }
@@ -219,4 +224,127 @@ export async function fetchFeedbacksFromGoogleSheets(scriptUrl: string): Promise
     };
   }
 }
+
+export interface SavePhotoResult {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * Menyimpan foto kost permanen ke Google Sheet (tab Foto_Kost).
+ * Karena tersimpan di sheet terhubung, foto ini akan otomatis tampil
+ * ke seluruh pengunjung di perangkat apa pun.
+ */
+export async function saveKostPhotoToGoogleSheet(
+  scriptUrl: string,
+  branch: string,
+  photoUrl: string
+): Promise<SavePhotoResult> {
+  if (!scriptUrl || !scriptUrl.trim().startsWith('http')) {
+    return {
+      success: false,
+      message: 'URL Google Apps Script belum dikonfigurasi.',
+    };
+  }
+
+  const payload = {
+    action: 'save_photo',
+    branch,
+    photoUrl,
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+    await fetch(scriptUrl.trim(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify(payload),
+      mode: 'no-cors',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    return {
+      success: true,
+      message: `Foto ${branch} berhasil dikirim dan tersimpan permanen di Google Sheet!`,
+    };
+  } catch (err) {
+    console.error('Error saving photo to Google Sheet:', err);
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : 'Gagal menghubungi Google Apps Script.',
+    };
+  }
+}
+
+export interface FetchPhotosResult {
+  success: boolean;
+  photos?: {
+    acarya1?: string;
+    acarya2?: string;
+  };
+  message: string;
+}
+
+/**
+ * Mengambil tautan foto Kost Acarya 1 & 2 dari Google Sheet
+ */
+export async function fetchKostPhotosFromGoogleSheet(
+  scriptUrl: string
+): Promise<FetchPhotosResult> {
+  if (!scriptUrl || !scriptUrl.trim().startsWith('http')) {
+    return {
+      success: false,
+      message: 'URL Google Apps Script belum dikonfigurasi.',
+    };
+  }
+
+  try {
+    const separator = scriptUrl.includes('?') ? '&' : '?';
+    const fetchUrl = `${scriptUrl.trim()}${separator}action=get_photos&_t=${Date.now()}`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+    const response = await fetch(fetchUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data && data.photos) {
+      return {
+        success: true,
+        photos: data.photos,
+        message: 'Berhasil memuat foto kost dari Google Sheet.',
+      };
+    }
+
+    return {
+      success: false,
+      message: 'Tidak ada data foto pada respon spreadsheet.',
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : 'Gagal mengambil foto dari spreadsheet.',
+    };
+  }
+}
+
 
