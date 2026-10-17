@@ -30,6 +30,10 @@ export const GoogleSheetsGuideModal: React.FC<GoogleSheetsGuideModalProps> = ({
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
+  React.useEffect(() => {
+    setCurrentUrl(scriptUrl);
+  }, [scriptUrl]);
+
   const appsScriptCode = getGoogleAppsScriptCode();
 
   const handleCopyCode = async () => {

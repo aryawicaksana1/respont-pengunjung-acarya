@@ -57,7 +57,9 @@ export default function App() {
               ? parsed.adminPin
               : 'acaryasingaraja',
           googleAppsScriptUrl:
-            parsed.googleAppsScriptUrl && parsed.googleAppsScriptUrl.trim().length > 0
+            parsed.googleAppsScriptUrl &&
+            parsed.googleAppsScriptUrl.trim().length > 0 &&
+            !parsed.googleAppsScriptUrl.includes('AKfycbxOBy4gAoqJ6vhyDo10gRB691SR8ZiS0tjq_kbA-YFHsvDcdv4E_KDPTd_FGM2UIkc2vg')
               ? parsed.googleAppsScriptUrl
               : DEFAULT_SETTINGS.googleAppsScriptUrl,
         };

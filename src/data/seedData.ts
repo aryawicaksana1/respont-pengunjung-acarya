@@ -1,7 +1,7 @@
 import type { VisitorFeedback, AppSettings } from '../types/feedback.ts';
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  googleAppsScriptUrl: 'https://script.google.com/macros/s/AKfycbxOBy4gAoqJ6vhyDo10gRB691SR8ZiS0tjq_kbA-YFHsvDcdv4E_KDPTd_FGM2UIkc2vg/exec',
+  googleAppsScriptUrl: 'https://script.google.com/macros/s/AKfycbyEnZqNpqVcKa0ZA-xMBclSf58CM0a3_xPE_lVr9fyi_2N-cZQDCLO69c2hYxiQo-SgHg/exec',
   kostName: 'Kost Acarya 2',
   kostAddress: 'Desa Padang Keling (Dekat Kampus STAH Mpu Kuturan), Singaraja, Bali',
   kostPhone: '+62 878-6726-1660',

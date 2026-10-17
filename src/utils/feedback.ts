@@ -636,7 +636,7 @@ function doGet(e) {
 function getPhotosFromSheet(ss) {
   var photoObj = {};
   try {
-    var photoSheet = ss.getSheetByName(SHEET_PHOTOS);
+    var photoSheet = ss.getSheetByName(SHEET_PHOTOS) || ss.getSheetByName("Foto Kost") || ss.getSheetByName("Foto");
     if (!photoSheet) return photoObj;
 
     var lastRow = photoSheet.getLastRow();
@@ -648,9 +648,9 @@ function getPhotosFromSheet(ss) {
       var photoUrl = String(data[i][1] || "").trim();
       if (!photoUrl) continue;
 
-      if (branchName.indexOf("acarya 1") !== -1 || branchName.indexOf("cabang 1") !== -1) {
+      if (branchName.indexOf("acarya 1") !== -1 || branchName.indexOf("cabang 1") !== -1 || branchName.indexOf("1") !== -1) {
         photoObj.acarya1 = photoUrl;
-      } else if (branchName.indexOf("acarya 2") !== -1 || branchName.indexOf("cabang 2") !== -1) {
+      } else if (branchName.indexOf("acarya 2") !== -1 || branchName.indexOf("cabang 2") !== -1 || branchName.indexOf("2") !== -1) {
         photoObj.acarya2 = photoUrl;
       }
     }
@@ -677,6 +677,27 @@ function setupPhotosSheetHeader(sheet) {
     sheet.setColumnWidth(1, 180);
     sheet.setColumnWidth(2, 420);
     sheet.setColumnWidth(3, 200);
+  }
+}
+
+/**
+ * ============================================================================
+ * FUNGSI LANGSUNG: Jalankan fungsi ini di Apps Script (pilih fungsi ini lalu klik "Jalankan")
+ * untuk seketika memunculkan tab Foto_Kost dengan format rapi di spreadsheet Anda!
+ * ============================================================================
+ */
+function buatTabFotoKostSekarang() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var photoSheet = ss.getSheetByName(SHEET_PHOTOS);
+  if (!photoSheet) {
+    photoSheet = ss.insertSheet(SHEET_PHOTOS);
+  }
+  setupPhotosSheetHeader(photoSheet);
+
+  if (photoSheet.getLastRow() <= 1) {
+    var nowWIB = Utilities.formatDate(new Date(), "Asia/Jakarta", "dd/MM/yyyy HH:mm:ss");
+    photoSheet.appendRow(["Kost Acarya 1", "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80", nowWIB]);
+    photoSheet.appendRow(["Kost Acarya 2", "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80", nowWIB]);
   }
 }
 
